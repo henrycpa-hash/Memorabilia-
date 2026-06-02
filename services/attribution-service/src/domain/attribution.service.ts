@@ -30,10 +30,14 @@ export interface RenderRecord {
 interface ViewRecord { renderId: string; dedupeHash: string; counted: boolean; ts: string }
 interface ReferralEdge { renderId: string; sharerId: string; inviteeId: string; status: "activated" | "converted" | "expired"; createdAt: string; convertedAt?: string }
 
+interface InstallRecord { renderId: string; deviceHash: string; ts: string }
+
 const renders = new Map<string, RenderRecord>();
 const views: ViewRecord[] = [];
 const seenView = new Set<string>(); // `${renderId}:${dedupeHash}`
 const referrals: ReferralEdge[] = [];
+const installs: InstallRecord[] = [];
+const deferredLinks = new Map<string, { renderId: string; ts: string }>(); // deviceHash -> deferred render_id
 
 // ULID-ish: time-sortable prefix + random — collision-safe, no deps
 function mintRenderId(): string {
@@ -97,8 +101,21 @@ export const attributionService = {
     }
     seenView.add(key);
     views.push({ renderId, dedupeHash, counted: true, ts: nowIso() });
+    // stash a deferred deep link so an install from this device resolves the render_id
+    deferredLinks.set(dedupeHash, { renderId, ts: nowIso() });
     await grantXp({ userId: rec.sharerId, action: "slab_shared", refRenderId: renderId });
     return { counted: true };
+  },
+
+  /** Resolve the deferred deep link for a device (set at view time). */
+  resolveDeferred: (deviceHash: string) => deferredLinks.get(deviceHash)?.renderId || null,
+
+  /** app.install — attributed install via deferred deep link. Binds, no XP. */
+  recordInstall(deviceHash: string, renderId?: string): { ok: boolean; renderId: string | null } {
+    const rid = renderId || deferredLinks.get(deviceHash)?.renderId || null;
+    if (!rid || !renders.has(rid)) return { ok: false, renderId: null };
+    installs.push({ renderId: rid, deviceHash, ts: nowIso() });
+    return { ok: true, renderId: rid };
   },
 
   /** user.activated — write the sharer→invitee edge. No XP yet. */
@@ -135,16 +152,19 @@ export const attributionService = {
   /** Computable viral metrics from the chain. */
   metrics() {
     const uniqueViews = views.filter((v) => v.counted).length;
+    const installCount = installs.length;
     const activations = referrals.length;
     const conversions = referrals.filter((r) => r.status === "converted").length;
     const sharers = new Set(referrals.map((r) => r.sharerId)).size || 1;
     return {
       renders: renders.size,
       uniqueViews,
+      installs: installCount,
       activations,
       conversions,
       kFactor: Math.round((conversions / sharers) * 100) / 100,
-      installToMint: activations ? Math.round((conversions / activations) * 100) / 100 : 0,
+      shareToInstall: uniqueViews ? Math.round((installCount / uniqueViews) * 100) / 100 : 0,
+      installToMint: installCount ? Math.round((conversions / installCount) * 100) / 100 : 0,
       bySurface: ["imessage", "x", "tiktok", "link"].map((s) => ({ surface: s, renders: [...renders.values()].filter((r) => r.surface === s).length }))
     };
   }

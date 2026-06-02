@@ -27,6 +27,7 @@ services:
       XP_SERVICE_URL: http://xp-service:4073
       ATTRIBUTION_SERVICE_URL: http://attribution-service:4074
       PASSKEY_SERVICE_URL: http://passkey-service:4075
+      ATHLETE_INDEX_SERVICE_URL: http://athlete-index-service:4076
     ports: ["4000:4000"]
     depends_on:
       - identity-service
@@ -91,6 +92,7 @@ services:
       - xp-service
       - attribution-service
       - passkey-service
+      - athlete-index-service
 
   # ---- CrownX revamp services (additive) ----
   xp-service:
@@ -107,6 +109,10 @@ services:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/passkey-service } }
     env_file: [../../.env.example]
     ports: ["4075:4075"]
+  athlete-index-service:
+    build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/athlete-index-service } }
+    env_file: [../../.env.example]
+    ports: ["4076:4076"]
 
   identity-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/identity-service } }

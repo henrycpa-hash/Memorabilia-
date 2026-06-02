@@ -168,6 +168,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "passkey-service", "dev"],
       "port": 4075
+    },
+    {
+      "name": "athlete-index-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "athlete-index-service", "dev"],
+      "port": 4076
     }
   ]
 }

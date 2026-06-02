@@ -57,6 +57,20 @@ export function registerAttributionRoutes(app: FastifyInstance) {
     );
   });
 
+  // app.install — attributed install via deferred deep link (binds render_id)
+  app.post("/attribution/install", async (request, reply) => {
+    const b = (request.body || {}) as { deviceHash?: string; renderId?: string };
+    if (!b.deviceHash) return reply.code(400).send({ error: "deviceHash_required" });
+    const r = attributionService.recordInstall(b.deviceHash, b.renderId);
+    reply.code(r.ok ? 200 : 404).send(r);
+  });
+
+  // resolve the deferred deep link a device was tagged with at view time
+  app.get("/attribution/deferred/:deviceHash", async (request) => {
+    const { deviceHash } = request.params as { deviceHash: string };
+    return { renderId: attributionService.resolveDeferred(deviceHash) };
+  });
+
   // user.activated — write the referral edge (no XP)
   app.post("/attribution/activate", async (request, reply) => {
     const b = (request.body || {}) as { renderId?: string; inviteeId?: string };

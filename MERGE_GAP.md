@@ -96,6 +96,30 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C2 · Athlete Index, fractionalization & Legacy Circle (DONE)
+
+- **`@crownx-jewel/shared-valuation`** — a dynamic, multi-factor athlete index so
+  value reflects reality, not dreams: a hard **royalty-DCF floor** (signed
+  contracts + sponsor smart contracts) plus a weighted brand index over on-field
+  performance, off-field conduct/values, press sentiment (±), memorabilia trade
+  velocity, market supply (scarcity factor), social reach, and **pluggable custom
+  data points**. Outputs a stock-like price-per-share + a transparent breakdown.
+- **`athlete-index-service :4076`** — the live exchange: ticker + price history
+  with event annotations, **fractional ownership** (anyone owns a piece; shares,
+  holdings, buy), **blockchain-tracked resale royalties** (athlete earns on every
+  resale, on-chain tx ref; the resale also feeds the index), and the **Legacy
+  Circle** ownership chain (Fan A → Fan B → …) tied directly to the athlete.
+- **UI**: `/athletes` (stock ticker) + `/athletes/[slug]` (price chart with
+  annotations, valuation breakdown, fractional buy, royalty ledger, Legacy Circle
+  chain, share-to-go-viral). Live **leaderboard** + **athlete ticker** widgets on
+  the dashboard.
+- **Viral**: `ShareAthlete` mints an attribution render for the index card;
+  **deferred-deep-link install attribution** added (view tags a device → install
+  binds the render_id → first-mint converts).
+- Gateway proxies `/api/athletes/*`; smoke-tested directly and through the
+  gateway. NOTE: the api-gateway preview can hang after many hot-reloads under
+  heavy process load — stop+start it (preview) to recover; the proxies are fine.
+
 ## D · Net: the merge is comprehensive
 
 Every consumer-facing ZIP surface is now in the product, on one design system,
