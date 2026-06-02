@@ -1,0 +1,173 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "collector-vault (CrownX Vault)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "collector-vault", "dev"],
+      "port": 3003
+    },
+    {
+      "name": "public-story-web (Landing & Stories)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "public-story-web", "dev"],
+      "port": 3004
+    },
+    {
+      "name": "market-web (Marketplace)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "market-web", "dev"],
+      "port": 3005
+    },
+    {
+      "name": "creator-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "creator-portal", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "api-gateway",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "api-gateway", "dev"],
+      "port": 4000
+    },
+    {
+      "name": "admin-queue",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "admin-queue", "dev"],
+      "port": 3002
+    },
+    {
+      "name": "ops-console",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "ops-console", "dev"],
+      "port": 3006
+    },
+    {
+      "name": "institutional-reporting-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "institutional-reporting-portal", "dev"],
+      "port": 3007
+    },
+    {
+      "name": "compliance-control-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "compliance-control-portal", "dev"],
+      "port": 3011
+    },
+    {
+      "name": "procurement-governance-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "procurement-governance-portal", "dev"],
+      "port": 3012
+    },
+    {
+      "name": "collections-operations-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "collections-operations-portal", "dev"],
+      "port": 3016
+    },
+    {
+      "name": "sovereign-control-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "sovereign-control-portal", "dev"],
+      "port": 3019
+    },
+    {
+      "name": "legal-collaboration-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "legal-collaboration-portal", "dev"],
+      "port": 3022
+    },
+    {
+      "name": "incident-command-portal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "incident-command-portal", "dev"],
+      "port": 3025
+    },
+    {
+      "name": "identity-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "identity-service", "dev"],
+      "port": 4001
+    },
+    {
+      "name": "asset-registry-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "asset-registry-service", "dev"],
+      "port": 4002
+    },
+    {
+      "name": "authentication-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "authentication-service", "dev"],
+      "port": 4003
+    },
+    {
+      "name": "coa-provenance-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "coa-provenance-service", "dev"],
+      "port": 4004
+    },
+    {
+      "name": "royalty-engine-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "royalty-engine-service", "dev"],
+      "port": 4006
+    },
+    {
+      "name": "referral-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "referral-service", "dev"],
+      "port": 4007
+    },
+    {
+      "name": "notification-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "notification-service", "dev"],
+      "port": 4008
+    },
+    {
+      "name": "auction-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "auction-service", "dev"],
+      "port": 4009
+    },
+    {
+      "name": "offer-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "offer-service", "dev"],
+      "port": 4010
+    },
+    {
+      "name": "watchlist-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "watchlist-service", "dev"],
+      "port": 4011
+    },
+    {
+      "name": "growth-ranking-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "growth-ranking-service", "dev"],
+      "port": 4013
+    },
+    {
+      "name": "xp-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "xp-service", "dev"],
+      "port": 4073
+    },
+    {
+      "name": "attribution-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "attribution-service", "dev"],
+      "port": 4074
+    },
+    {
+      "name": "passkey-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "passkey-service", "dev"],
+      "port": 4075
+    }
+  ]
+}

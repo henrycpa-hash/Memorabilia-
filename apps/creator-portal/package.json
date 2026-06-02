@@ -1,0 +1,26 @@
+{
+  "name": "creator-portal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001 -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start -p 3001 -H 0.0.0.0",
+    "lint": "echo skip",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@crownx-jewel/shared-design": "workspace:*",
+    "@crownx-jewel/shared-pricing": "workspace:*",
+    "next": "15.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "swr": "^2.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}

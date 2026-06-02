@@ -1,0 +1,24 @@
+{
+  "name": "@crownx-jewel/shared-ledger",
+  "version": "0.3.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./accounts": "./src/accounts.ts",
+    "./entries": "./src/entries.ts",
+    "./posting": "./src/posting.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "echo skip",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@crownx-jewel/shared-kernel": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

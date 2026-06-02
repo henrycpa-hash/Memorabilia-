@@ -1,0 +1,178 @@
+/* =====================================================================
+   CrownX × Jewel — Global Theme
+   Import once per app, in the root layout:  import "@crownx-jewel/shared-design/theme.css";
+   CSS custom properties mirror tokens.ts 1:1 (prefixed --cx-*).
+   ===================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@300;400;500;600;700;800&family=Azeret+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* surfaces */
+  --cx-void: #04060d;
+  --cx-void2: #070a14;
+  --cx-ink: #0c1120;
+  --cx-ink2: #111a30;
+  --cx-panel: #121c30;
+  --cx-deep: #0a2540;
+  /* hairlines */
+  --cx-line: rgba(255, 255, 255, 0.08);
+  --cx-line2: rgba(255, 255, 255, 0.15);
+  /* brand */
+  --cx-cyan: #3fd9d4;
+  --cx-cyan-hi: #8ff5f1;
+  --cx-cyan-dk: #1c6f6b;
+  --cx-gold: #d9a82e;
+  --cx-gold-hi: #f7e08a;
+  --cx-gold-deep: #8a6310;
+  /* neutrals */
+  --cx-plat: #cfd6e6;
+  --cx-txt: #eef1f8;
+  --cx-mut: #7d869c;
+  --cx-mut2: #4d5468;
+  /* signal */
+  --cx-win: #37d39a;
+  --cx-hot: #ff4d6d;
+  /* type */
+  --cx-display: "Bebas Neue", Georgia, "Times New Roman", serif;
+  --cx-body: "Sora", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --cx-mono: "Azeret Mono", ui-monospace, Consolas, monospace;
+  /* radii */
+  --cx-r-sm: 8px;
+  --cx-r-md: 12px;
+  --cx-r-lg: 16px;
+  --cx-r-xl: 22px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body.cx-app {
+  margin: 0;
+  background: var(--cx-void);
+  color: var(--cx-txt);
+  font-family: var(--cx-body);
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: radial-gradient(
+      ellipse 70% 45% at 50% -8%,
+      rgba(63, 217, 212, 0.1),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 88% 18%,
+      rgba(217, 168, 46, 0.07),
+      transparent 55%
+    );
+  background-attachment: fixed;
+}
+
+/* fine film grain — matches the reference's overlay */
+body.cx-app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99990;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+a {
+  color: var(--cx-cyan);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--cx-cyan-hi);
+}
+
+::selection {
+  background: rgba(63, 217, 212, 0.3);
+  color: #fff;
+}
+
+/* ---- shared keyframes (reveal / scan / sheen / pulse) ---- */
+@keyframes cx-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes cx-sheen {
+  0% {
+    background-position: 160% 0;
+  }
+  100% {
+    background-position: -160% 0;
+  }
+}
+@keyframes cx-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@keyframes cx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes cx-scan {
+  0% {
+    top: 18%;
+  }
+  50% {
+    top: 82%;
+  }
+  100% {
+    top: 18%;
+  }
+}
+@keyframes cx-reveal-pop {
+  0% {
+    transform: scale(0.2) rotateY(360deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotateY(0);
+    opacity: 1;
+  }
+}
+
+/* utility classes consumed by ported surfaces */
+.cx-mono {
+  font-family: var(--cx-mono);
+}
+.cx-display {
+  font-family: var(--cx-display);
+}
+.cx-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.cx-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 60%
+  );
+  background-size: 250% 100%;
+  animation: cx-sheen 3.5s linear infinite;
+  pointer-events: none;
+}
