@@ -202,7 +202,7 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
       </Panel>
 
       {/* Royalty Vault — held-until-claim treasury connected to this athlete account */}
-      <Panel style={{ marginTop: 16, borderColor: vault && vault.display.held !== "$0.00" ? color.goldHi : color.line }}>
+      <Panel style={{ marginTop: 16, border: `1px solid ${vault && vault.display.held !== "$0.00" ? color.goldHi : color.line}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <SectionTag>Royalty Vault · held-until-claim</SectionTag>
           {vault && (

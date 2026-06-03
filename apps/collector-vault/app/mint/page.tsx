@@ -172,7 +172,7 @@ export default function MintPage() {
               </Panel>
             </div>
           ) : (
-            <Panel style={{ marginTop: 16, borderColor: "rgba(255,77,109,0.4)", background: "rgba(255,77,109,0.05)" }}>
+            <Panel style={{ marginTop: 16, border: "1px solid rgba(255,77,109,0.4)", background: "rgba(255,77,109,0.05)" }}>
               <SectionTag>Counterfeit — COA blocked</SectionTag>
               <p style={{ color: color.mut, fontSize: 13, margin: 0 }}>The engine flagged a forensic mismatch ({result.verdict.reason}). No COA issued; the record is sealed for audit. No rank credit.</p>
             </Panel>

@@ -388,7 +388,9 @@ const ghostBtn: React.CSSProperties = { fontFamily: font.mono, fontSize: 11, col
 const primaryBtn: React.CSSProperties = { fontFamily: font.body, fontWeight: 600, fontSize: 12, color: "#04181a", background: gradient.cyanAction, border: "none", borderRadius: 9, padding: "8px 14px", cursor: "pointer", boxShadow: "0 0 24px rgba(63,217,212,0.25)" };
 const disabledBtn: React.CSSProperties = { fontFamily: font.body, fontSize: 12, color: color.mut, background: "transparent", border: `1px solid ${color.line}`, borderRadius: 9, padding: "8px 14px", cursor: "not-allowed" };
 const tabBtn: React.CSSProperties = { fontFamily: font.mono, fontSize: 10.5, color: color.mut, background: "transparent", border: `1px solid ${color.line}`, borderRadius: 999, padding: "6px 12px", cursor: "pointer" };
-const tabBtnOn: React.CSSProperties = { color: color.void, background: color.cyan, borderColor: color.cyan };
+// use the `border` shorthand (not `borderColor`) so selected↔unselected never
+// removes a non-shorthand property while the shorthand remains (React warning).
+const tabBtnOn: React.CSSProperties = { color: color.void, background: color.cyan, border: `1px solid ${color.cyan}` };
 
 // ───────────────────────── WebXR render loop (§2) ─────────────────────────
 // Minimal, dependency-free immersive renderer: shows the COA as two textured

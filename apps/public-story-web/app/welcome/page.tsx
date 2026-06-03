@@ -137,7 +137,7 @@ export default function WelcomePage() {
       </section>
 
       {/* pricing note — reads from platform, never edited here */}
-      <Panel style={{ marginTop: 40, borderColor: "rgba(217,168,46,0.4)", borderStyle: "dashed", background: "rgba(217,168,46,0.04)", textAlign: "center" }}>
+      <Panel style={{ marginTop: 40, border: "1px dashed rgba(217,168,46,0.4)", background: "rgba(217,168,46,0.04)", textAlign: "center" }}>
         <h3 style={{ fontFamily: font.display, fontSize: 22, color: color.goldHi, margin: 0 }}>Pricing lives in the platform</h3>
         <p style={{ fontSize: 13, color: color.mut, marginTop: 8, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
           CrownX&apos;s subscription prices and fee logic are already defined in the platform code. Higher tiers shift

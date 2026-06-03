@@ -40,7 +40,7 @@ export default function PricingPage() {
         </Panel>
       </section>
 
-      <Panel style={{ marginTop: 20, borderColor: "rgba(217,168,46,0.4)", borderStyle: "dashed", background: "rgba(217,168,46,0.04)" }}>
+      <Panel style={{ marginTop: 20, border: "1px dashed rgba(217,168,46,0.4)", background: "rgba(217,168,46,0.04)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <Badge tone="gold">Enterprise billing untouched</Badge>
           <p style={{ color: color.mut, fontSize: 13, margin: 0, flex: 1, minWidth: 240 }}>

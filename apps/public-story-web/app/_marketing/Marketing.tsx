@@ -88,7 +88,7 @@ export function MarketingPage({ content }: { content: MarketingContent }) {
         </section>
       ))}
 
-      <Panel style={{ marginTop: 36, textAlign: "center", borderColor: "rgba(63,217,212,0.35)" }}>
+      <Panel style={{ marginTop: 36, textAlign: "center", border: "1px solid rgba(63,217,212,0.35)" }}>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
           <Badge tone="cyan">Patent Pending</Badge>
           <ButtonLink href={content.cta?.href || "/welcome"} as={Link} variant="primary">{content.cta?.label || "Claim your founder slab →"}</ButtonLink>
