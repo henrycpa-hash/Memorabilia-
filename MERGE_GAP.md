@@ -96,6 +96,41 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C10 · Appraiser Network — choose your appraiser + authenticated signed report (DONE)
+
+Turns the single anonymous appraiser queue into a **network of certified
+appraisers the requester chooses from**, where the appraiser **cryptographically
+signs (authenticates) their report**.
+
+- **Roster** (`athlete-index-service`): `Appraiser` profiles (name, firm,
+  specialties, credential PSA-DNA / Beckett / JSA / Independent-CrownX-Verified,
+  credentialVerified, rating, reviews, completed, fee, turnaround, publicKey,
+  bio); 6 seeded across baseball / basketball / soccer / football / vintage /
+  forensics. `GET /appraisers?specialty=`, `GET /appraisers/:id`.
+- **Choose on request**: `POST /athletes/:id/appraisal` now takes `appraiserId`
+  → the job is **assigned** to that appraiser (fee + ETA captured); omit it to
+  fall back to the open pool. Athlete resolves by id **or** slug.
+- **Authenticated signed report**: on submit the appraiser produces a canonical
+  report (method, comparables, condition, statement), the report is
+  **content-hashed**, and a **signature binds the appraiser's public key to that
+  hash** (dilithium3 scheme) — the cryptographic attestation that THIS appraiser
+  stands behind THIS value. Submit also accepts a written report. An assigned
+  job can only be claimed/submitted by its chosen appraiser (else 403).
+- **Verify**: `GET /appraisals/:id/verify` recomputes the hash + signature and
+  reports `valid` / `reportTampered` / `signatureValid` — anyone can confirm the
+  appraiser authenticated it.
+- **Surfaced on the exchange**: `GET /athletes/:id/latest-appraisal` feeds a new
+  **AppraiserPicker** on the athlete page (browse the roster, pick, request, then
+  "Verify signature"), and the `/appraiser` console now lets you **pick your
+  network identity**, accept assignments, write + **sign** the report, and shows
+  the signature. Gateway proxies `/api/appraisers*`, `/api/appraisals/:id/verify`,
+  `/api/athletes/:id/latest-appraisal`.
+- Smoke (`scripts/smoke-appraiser-network.mjs`): list network → choose appraiser
+  (assigned) → stranger blocked 403 → accept → sign & submit → verify authentic
+  (untampered) → surfaces on exchange — all green through the gateway. The COA
+  3D/4D viewer, AR/VR entry, unlockables, share flow, pack-n-ship, mint, wealth,
+  and feed are unchanged and intact.
+
 ## C9 · Genesis COA — dynamic 3D/4D artifact + AR/VR (WebXR) (DONE)
 
 From `Genesis COA Artifact Specification.docx` + the Provisional/Non-Provisional

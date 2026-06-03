@@ -5,6 +5,7 @@ import { AthleteChart } from "../AthleteChart";
 import { FractionBuy } from "../FractionBuy";
 import { ShareAthlete } from "../ShareAthlete";
 import { AthleteTools } from "../AthleteTools";
+import { AppraiserPicker } from "../AppraiserPicker";
 import { OrderBook } from "../OrderBook";
 
 type Factor = { factor: string; label: string; weight: number; score: number; contributionCents: number };
@@ -139,6 +140,7 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
 
       {/* contracts, audit, insurance tools */}
       <AthleteTools athleteId={a.id} />
+      <AppraiserPicker athleteId={a.id} />
 
       {/* career / news timeline + verified contracts */}
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", marginTop: 16 }}>

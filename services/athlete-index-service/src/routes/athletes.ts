@@ -101,11 +101,15 @@ export function registerAthleteRoutes(app: FastifyInstance) {
   });
   app.post("/athletes/:id/appraisal", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const b = (request.body || {}) as { assetId?: string; requestedBy?: string };
+    const b = (request.body || {}) as { assetId?: string; requestedBy?: string; appraiserId?: string };
     if (!b.assetId) return reply.code(400).send({ error: "assetId_required" });
-    const r = athleteService.requestAppraisal(id, b.assetId, b.requestedBy || "anon");
-    if ("error" in r) return reply.code(404).send(r);
+    const r = athleteService.requestAppraisal(id, b.assetId, b.requestedBy || "anon", b.appraiserId);
+    if ("error" in r) return reply.code(r.error === "appraiser_not_found" ? 400 : 404).send(r);
     return r;
+  });
+  app.get("/athletes/:id/latest-appraisal", async (request) => {
+    const { id } = request.params as { id: string };
+    return athleteService.latestAppraisalFor(id);
   });
   app.get("/athletes/:id/audit-package", async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -162,25 +166,43 @@ export function registerAthleteRoutes(app: FastifyInstance) {
     return r;
   });
 
+  // ---- appraiser NETWORK (choose your appraiser) ----
+  app.get("/appraisers", async (request) => {
+    const { specialty } = request.query as { specialty?: string };
+    return { appraisers: athleteService.listAppraisers(specialty) };
+  });
+  app.get("/appraisers/:appraiserId", async (request, reply) => {
+    const { appraiserId } = request.params as { appraiserId: string };
+    const a = athleteService.getAppraiser(appraiserId);
+    if (!a) return reply.code(404).send({ error: "appraiser_not_found" });
+    return a;
+  });
+
   // ---- appraiser human-in-the-loop queue ----
   app.get("/appraisals", async (request) => {
-    const { status } = request.query as { status?: Appraisal["status"] };
-    return athleteService.appraisalQueue(status);
+    const { status, appraiserId } = request.query as { status?: Appraisal["status"]; appraiserId?: string };
+    return athleteService.appraisalQueue(status, appraiserId);
+  });
+  app.get("/appraisals/:appraisalId/verify", async (request, reply) => {
+    const { appraisalId } = request.params as { appraisalId: string };
+    const r = athleteService.verifyAppraisalReport(appraisalId);
+    if ("error" in r) return reply.code(404).send(r);
+    return r;
   });
   app.post("/appraisals/:appraisalId/claim", async (request, reply) => {
     const { appraisalId } = request.params as { appraisalId: string };
     const b = (request.body || {}) as { appraiserId?: string };
     if (!b.appraiserId) return reply.code(400).send({ error: "appraiserId_required" });
     const r = athleteService.claimAppraisal(appraisalId, b.appraiserId);
-    if ("error" in r) return reply.code(404).send(r);
+    if ("error" in r) return reply.code(r.error === "assigned_to_another_appraiser" ? 403 : 404).send(r);
     return r;
   });
   app.post("/appraisals/:appraisalId/submit", async (request, reply) => {
     const { appraisalId } = request.params as { appraisalId: string };
-    const b = (request.body || {}) as { appraiserId?: string; appraisedValueCents?: number; notes?: string };
+    const b = (request.body || {}) as { appraiserId?: string; appraisedValueCents?: number; notes?: string; report?: { method?: string; comparables?: string[]; condition?: string; statement?: string } };
     if (!b.appraiserId || !b.appraisedValueCents) return reply.code(400).send({ error: "appraiserId_and_appraisedValueCents_required" });
-    const r = athleteService.submitAppraisal(appraisalId, b.appraiserId, Math.floor(b.appraisedValueCents), b.notes);
-    if ("error" in r) return reply.code(404).send(r);
+    const r = athleteService.submitAppraisal(appraisalId, b.appraiserId, Math.floor(b.appraisedValueCents), b.notes, b.report);
+    if ("error" in r) return reply.code(r.error === "assigned_to_another_appraiser" ? 403 : 404).send(r);
     return r;
   });
 
