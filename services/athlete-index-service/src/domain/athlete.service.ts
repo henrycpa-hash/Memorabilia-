@@ -77,6 +77,67 @@ const legacy = new Map<string, LegacyChain>(); // `${athleteId}:${assetId}`
 const contracts = new Map<string, AthleteContract[]>(); // athleteId -> contracts
 const timeline = new Map<string, TimelineEvent[]>(); // athleteId -> events
 
+/* ----- secondary-market order book (fans trade held fractions peer-to-peer) ----- */
+export type OrderSide = "buy" | "sell";
+export interface Order {
+  id: string;
+  athleteId: string;
+  userId: string;
+  side: OrderSide;
+  shares: number;
+  remaining: number;
+  limitPriceCents: number;
+  status: "open" | "partial" | "filled" | "cancelled";
+  createdAt: string;
+}
+export interface Fill {
+  id: string;
+  athleteId: string;
+  buyOrderId: string;
+  sellOrderId: string;
+  buyerId: string;
+  sellerId: string;
+  shares: number;
+  priceCents: number;
+  ts: string;
+}
+const orders: Order[] = [];
+const fills: Fill[] = [];
+const lastTradePrice = new Map<string, number>(); // athleteId -> last fill price
+
+/* ----- appraiser human-in-the-loop queue ----- */
+export interface Appraisal {
+  id: string;
+  athleteId: string;
+  assetId: string;
+  requestedBy: string;
+  modelImpliedCents: number;
+  status: "queued" | "in_review" | "completed";
+  appraiserId?: string;
+  appraisedValueCents?: number;
+  notes?: string;
+  anchor?: AnchorReceipt;
+  requestedAt: string;
+  completedAt?: string;
+}
+const appraisals: Appraisal[] = [];
+
+const XP_URL = () => process.env.XP_SERVICE_URL || "http://localhost:4073";
+/** Liquidity is health — a fill earns light XP (canonical economy: sale_completed). */
+function grantStakeholderXp(userId: string) {
+  fetch(`${XP_URL()}/xp/grant`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId, action: "sale_completed" }) }).catch(() => undefined);
+}
+
+/** Find (or create a zero) holding for a fan — used by primary buys + order matching. */
+function holdingFor(athleteId: string, userId: string) {
+  let h = holdings.find((x) => x.athleteId === athleteId && x.userId === userId);
+  if (!h) {
+    h = { athleteId, userId, shares: 0, costBasisCents: 0 };
+    holdings.push(h);
+  }
+  return h;
+}
+
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 /** Effective valuation: base + verified-contract DCF, with live demand elasticity. */
@@ -225,6 +286,7 @@ export const athleteService = {
     h.costBasisCents += costBasisCents;
     // demand pressure → price elasticity (buys lift the index)
     a.demandPressure = Math.min(1, a.demandPressure + (shares / a.sharesOutstanding) * 4);
+    grantStakeholderXp(userId); // become a stakeholder → earn XP
     pushPoint(a, { kind: "fraction", tag: "B", label: `${shares.toLocaleString()} shares bought`, note: `Stakeholder ${userId}` });
     return { ok: true as const, shares, costBasisCents, costDisplay: formatUsdCents(costBasisCents), pricePerShareCents: idx.pricePerShareCents, holding: h, fractionsAvailable: a.sharesOutstanding - a.fractionsSold };
   },
@@ -387,16 +449,132 @@ export const athleteService = {
     return { ok: true as const, authenticity: "verified", valuationDisplay: formatUsdCents(idx.marketCapCents), pricePerShareDisplay: formatUsdCents(idx.pricePerShareCents), attestation: receipt, coverageReady: true };
   },
 
-  /** Request a formal appraisal — routes into the appraiser pipeline. */
+  /** Request a formal appraisal — enters the human-in-the-loop appraiser queue. */
   requestAppraisal(id: string, assetId: string, requestedBy: string) {
     const a = athletes.get(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const idx = indexOf(a);
-    // model-implied appraisal anchored to the verified index; a human appraiser confirms
-    const appraisedCents = Math.round(idx.marketCapCents * 0.0008); // per-asset slice of franchise value
-    const receipt = anchor("appraisal.request", { athleteId: id, assetId, requestedBy, appraisedCents, ts: nowIso() }, nowIso());
-    return { ok: true as const, status: "queued_to_appraiser", appraisedValueDisplay: formatUsdCents(appraisedCents), backedByVerification: true, anchor: receipt };
+    const modelImpliedCents = Math.round(idx.marketCapCents * 0.0008); // per-asset slice of franchise value
+    const ap: Appraisal = { id: newId(), athleteId: id, assetId, requestedBy, modelImpliedCents, status: "queued", requestedAt: nowIso() };
+    appraisals.push(ap);
+    return { ok: true as const, status: "queued_to_appraiser", appraisalId: ap.id, modelImpliedDisplay: formatUsdCents(modelImpliedCents), backedByVerification: true };
   },
+
+  /* ----------------------- Appraiser human-in-the-loop queue ----------------------- */
+  appraisalQueue: (status?: Appraisal["status"]) =>
+    appraisals
+      .filter((x) => !status || x.status === status)
+      .map((x) => ({ ...x, modelImpliedDisplay: formatUsdCents(x.modelImpliedCents), appraisedDisplay: x.appraisedValueCents != null ? formatUsdCents(x.appraisedValueCents) : null, athleteName: athletes.get(x.athleteId)?.name })),
+
+  claimAppraisal(appraisalId: string, appraiserId: string) {
+    const ap = appraisals.find((x) => x.id === appraisalId);
+    if (!ap) return { error: "not_found" } as const;
+    if (ap.status === "completed") return { error: "already_completed" } as const;
+    ap.status = "in_review";
+    ap.appraiserId = appraiserId;
+    return { ok: true as const, appraisal: ap };
+  },
+
+  /** Appraiser submits the human-verified value — anchored, backed by verification. */
+  submitAppraisal(appraisalId: string, appraiserId: string, appraisedValueCents: number, notes?: string) {
+    const ap = appraisals.find((x) => x.id === appraisalId);
+    if (!ap) return { error: "not_found" } as const;
+    ap.status = "completed";
+    ap.appraiserId = appraiserId;
+    ap.appraisedValueCents = appraisedValueCents;
+    ap.notes = notes;
+    ap.completedAt = nowIso();
+    ap.anchor = anchor("appraisal.completed", { appraisalId, athleteId: ap.athleteId, assetId: ap.assetId, appraiserId, appraisedValueCents, completedAt: ap.completedAt }, ap.completedAt);
+    return { ok: true as const, appraisal: { ...ap, appraisedDisplay: formatUsdCents(appraisedValueCents) }, anchor: ap.anchor };
+  },
+
+  /* ------------------------ Secondary-market order matching ------------------------ */
+
+  /** Place a limit order; match immediately against the book (price-time priority). */
+  placeOrder(id: string, userId: string, side: OrderSide, shares: number, limitPriceCents: number) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    if (shares <= 0 || limitPriceCents <= 0) return { error: "invalid_order" } as const;
+    if (side === "sell") {
+      const have = holdings.find((h) => h.athleteId === id && h.userId === userId)?.shares || 0;
+      const openSell = orders.filter((o) => o.athleteId === id && o.userId === userId && o.side === "sell" && (o.status === "open" || o.status === "partial")).reduce((s, o) => s + o.remaining, 0);
+      if (shares > have - openSell) return { error: "insufficient_shares", available: have - openSell } as const;
+    }
+    const order: Order = { id: newId(), athleteId: id, userId, side, shares, remaining: shares, limitPriceCents, status: "open", createdAt: nowIso() };
+
+    // candidate resting orders on the opposite side
+    const candidates = orders
+      .filter((o) => o.athleteId === id && o.side !== side && (o.status === "open" || o.status === "partial") && o.userId !== userId)
+      .filter((o) => (side === "buy" ? o.limitPriceCents <= limitPriceCents : o.limitPriceCents >= limitPriceCents))
+      .sort((x, y) => (side === "buy" ? x.limitPriceCents - y.limitPriceCents : y.limitPriceCents - x.limitPriceCents) || x.createdAt.localeCompare(y.createdAt));
+
+    const newFills: Fill[] = [];
+    for (const maker of candidates) {
+      if (order.remaining <= 0) break;
+      const qty = Math.min(order.remaining, maker.remaining);
+      const price = maker.limitPriceCents; // execute at the resting maker's price
+      const buyerId = side === "buy" ? userId : maker.userId;
+      const sellerId = side === "buy" ? maker.userId : userId;
+      // transfer holdings between fans
+      const bh = holdingFor(id, buyerId);
+      const sh = holdingFor(id, sellerId);
+      sh.shares -= qty;
+      sh.costBasisCents = Math.max(0, sh.costBasisCents - qty * price);
+      bh.shares += qty;
+      bh.costBasisCents += qty * price;
+      order.remaining -= qty;
+      maker.remaining -= qty;
+      maker.status = maker.remaining === 0 ? "filled" : "partial";
+      const f: Fill = { id: newId(), athleteId: id, buyOrderId: side === "buy" ? order.id : maker.id, sellOrderId: side === "buy" ? maker.id : order.id, buyerId, sellerId, shares: qty, priceCents: price, ts: nowIso() };
+      fills.push(f);
+      newFills.push(f);
+      lastTradePrice.set(id, price);
+      grantStakeholderXp(buyerId);
+      grantStakeholderXp(sellerId);
+    }
+    order.status = order.remaining === 0 ? "filled" : order.remaining < order.shares ? "partial" : "open";
+    orders.push(order);
+    return { ok: true as const, order, fills: newFills.map((f) => ({ ...f, priceDisplay: formatUsdCents(f.priceCents) })), lastTradeDisplay: formatUsdCents(lastTradePrice.get(id) || 0) };
+  },
+
+  orderBook(id: string) {
+    const open = orders.filter((o) => o.athleteId === id && (o.status === "open" || o.status === "partial"));
+    const agg = (side: OrderSide) => {
+      const m = new Map<number, number>();
+      for (const o of open.filter((x) => x.side === side)) m.set(o.limitPriceCents, (m.get(o.limitPriceCents) || 0) + o.remaining);
+      return [...m.entries()].map(([priceCents, shares]) => ({ priceCents, priceDisplay: formatUsdCents(priceCents), shares })).sort((a, b) => (side === "buy" ? b.priceCents - a.priceCents : a.priceCents - b.priceCents));
+    };
+    return { athleteId: id, bids: agg("buy"), asks: agg("sell"), lastTradeCents: lastTradePrice.get(id) || null, lastTradeDisplay: lastTradePrice.has(id) ? formatUsdCents(lastTradePrice.get(id)!) : null };
+  },
+
+  cancelOrder(orderId: string, userId: string) {
+    const o = orders.find((x) => x.id === orderId && x.userId === userId);
+    if (!o) return { error: "not_found" } as const;
+    if (o.status === "filled" || o.status === "cancelled") return { error: "not_open" } as const;
+    o.status = "cancelled";
+    return { ok: true as const, order: o };
+  },
+
+  ordersFor: (id: string, userId: string) => orders.filter((o) => o.athleteId === id && o.userId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  recentFills: (id: string) => fills.filter((f) => f.athleteId === id).slice(-20).reverse().map((f) => ({ ...f, priceDisplay: formatUsdCents(f.priceCents) })),
+
+  /** Top stakeholders for an athlete (most fractional shares) — viral leaderboard. */
+  topStakeholders(id: string) {
+    const a = athletes.get(id);
+    if (!a) return { athleteId: id, holders: [] };
+    const idx = indexOf(a);
+    return {
+      athleteId: id,
+      holders: holdings
+        .filter((h) => h.athleteId === id && h.shares > 0)
+        .sort((x, y) => y.shares - x.shares)
+        .slice(0, 10)
+        .map((h, i) => ({ rank: i + 1, userId: h.userId, shares: h.shares, valueDisplay: formatUsdCents(h.shares * idx.pricePerShareCents) }))
+    };
+  },
+
+  /** holdingFor used by order matching (creates a zero holding if absent). */
+  _holdingFor: holdingFor,
 
   /** Real-time, ready-made audit package for auditors / regulators. */
   auditPackage(id: string) {

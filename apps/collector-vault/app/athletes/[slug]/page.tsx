@@ -5,8 +5,10 @@ import { AthleteChart } from "../AthleteChart";
 import { FractionBuy } from "../FractionBuy";
 import { ShareAthlete } from "../ShareAthlete";
 import { AthleteTools } from "../AthleteTools";
+import { OrderBook } from "../OrderBook";
 
 type Factor = { factor: string; label: string; weight: number; score: number; contributionCents: number };
+type Stakeholder = { rank: number; userId: string; shares: number; valueDisplay: string };
 type Contract = { id: string; counterparty: string; kind: string; annualValueCents: number; termYears: number; verified: boolean };
 type TimelineEvent = { id: string; kind: string; title: string; detail?: string; date: string };
 type Detail = {
@@ -33,9 +35,10 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
       </Panel>
     );
   }
-  const [ledger, circle] = await Promise.all([
+  const [ledger, circle, stake] = await Promise.all([
     publicGet<Royalty[]>(`/api/athletes/${a.id}/royalty-ledger`),
-    publicGet<Circle>(`/api/athletes/${a.id}/legacy`)
+    publicGet<Circle>(`/api/athletes/${a.id}/legacy`),
+    publicGet<{ holders: Stakeholder[] }>(`/api/athletes/${a.id}/top-stakeholders`)
   ]);
   const up = a.change24h >= 0;
   const maxContribution = Math.max(...a.index.breakdown.map((b) => b.contributionCents), 1);
@@ -102,6 +105,31 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${color.line}`, fontSize: 12, color: color.mut }}>
             {a.fractionsSold.toLocaleString()} / {a.sharesOutstanding.toLocaleString()} shares held by fans. As a stakeholder you share in the athlete&apos;s rise — and earn XP.
           </div>
+        </Panel>
+      </div>
+
+      {/* secondary-market order book + top stakeholders */}
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", marginTop: 16 }}>
+        <Panel>
+          <OrderBook athleteId={a.id} priceCents={a.index.pricePerShareCents} />
+        </Panel>
+        <Panel>
+          <SectionTag>Top stakeholders</SectionTag>
+          <p style={{ color: color.mut, fontSize: 12, margin: "0 0 12px" }}>Fans who own the most of {a.name} — they rise with the athlete and earn XP.</p>
+          {(stake?.holders || []).length === 0 ? (
+            <p style={{ color: color.mut2, fontSize: 12, margin: 0 }}>No stakeholders yet — be the first to own a piece.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 6 }}>
+              {(stake?.holders || []).map((h) => (
+                <div key={h.userId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", border: `1px solid ${color.line}`, borderRadius: 9, background: h.rank === 1 ? "rgba(217,168,46,0.06)" : "rgba(255,255,255,0.02)" }}>
+                  <span style={{ fontFamily: font.display, fontSize: 16, color: h.rank === 1 ? color.goldHi : color.mut, width: 20 }}>{h.rank}</span>
+                  <span style={{ flex: 1, fontFamily: font.mono, fontSize: 12, color: color.txt }}>{h.userId.slice(0, 12)}</span>
+                  <span style={{ fontFamily: font.mono, fontSize: 11, color: color.mut }}>{h.shares.toLocaleString()}</span>
+                  <span style={{ fontFamily: font.display, fontSize: 15, color: color.cyanHi }}>{h.valueDisplay}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </Panel>
       </div>
 

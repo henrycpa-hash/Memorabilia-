@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { AthleteSignals, ContractKind } from "@crownx-jewel/shared-valuation";
-import { athleteService, type TimelineEvent } from "../domain/athlete.service";
+import { athleteService, type TimelineEvent, type OrderSide, type Appraisal } from "../domain/athlete.service";
 
 export function registerAthleteRoutes(app: FastifyInstance) {
   // the ticker
@@ -110,6 +110,62 @@ export function registerAthleteRoutes(app: FastifyInstance) {
   app.get("/athletes/:id/audit-package", async (request, reply) => {
     const { id } = request.params as { id: string };
     const r = athleteService.auditPackage(id);
+    if ("error" in r) return reply.code(404).send(r);
+    return r;
+  });
+
+  // ---- secondary-market order matching (fans trade fractions) ----
+  app.post("/athletes/:id/orders", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const b = (request.body || {}) as { userId?: string; side?: OrderSide; shares?: number; limitPriceCents?: number };
+    if (!b.userId || !b.side || !b.shares || !b.limitPriceCents) return reply.code(400).send({ error: "userId_side_shares_limitPriceCents_required" });
+    const r = athleteService.placeOrder(id, b.userId, b.side, Math.floor(b.shares), Math.floor(b.limitPriceCents));
+    if ("error" in r) return reply.code(409).send(r);
+    return reply.code(201).send(r);
+  });
+  app.get("/athletes/:id/orderbook", async (request) => {
+    const { id } = request.params as { id: string };
+    return athleteService.orderBook(id);
+  });
+  app.get("/athletes/:id/fills", async (request) => {
+    const { id } = request.params as { id: string };
+    return athleteService.recentFills(id);
+  });
+  app.get("/athletes/:id/orders/:userId", async (request) => {
+    const { id, userId } = request.params as { id: string; userId: string };
+    return athleteService.ordersFor(id, userId);
+  });
+  app.post("/athletes/:id/orders/:orderId/cancel", async (request, reply) => {
+    const { orderId } = request.params as { orderId: string };
+    const b = (request.body || {}) as { userId?: string };
+    if (!b.userId) return reply.code(400).send({ error: "userId_required" });
+    const r = athleteService.cancelOrder(orderId, b.userId);
+    if ("error" in r) return reply.code(404).send(r);
+    return r;
+  });
+  app.get("/athletes/:id/top-stakeholders", async (request) => {
+    const { id } = request.params as { id: string };
+    return athleteService.topStakeholders(id);
+  });
+
+  // ---- appraiser human-in-the-loop queue ----
+  app.get("/appraisals", async (request) => {
+    const { status } = request.query as { status?: Appraisal["status"] };
+    return athleteService.appraisalQueue(status);
+  });
+  app.post("/appraisals/:appraisalId/claim", async (request, reply) => {
+    const { appraisalId } = request.params as { appraisalId: string };
+    const b = (request.body || {}) as { appraiserId?: string };
+    if (!b.appraiserId) return reply.code(400).send({ error: "appraiserId_required" });
+    const r = athleteService.claimAppraisal(appraisalId, b.appraiserId);
+    if ("error" in r) return reply.code(404).send(r);
+    return r;
+  });
+  app.post("/appraisals/:appraisalId/submit", async (request, reply) => {
+    const { appraisalId } = request.params as { appraisalId: string };
+    const b = (request.body || {}) as { appraiserId?: string; appraisedValueCents?: number; notes?: string };
+    if (!b.appraiserId || !b.appraisedValueCents) return reply.code(400).send({ error: "appraiserId_and_appraisedValueCents_required" });
+    const r = athleteService.submitAppraisal(appraisalId, b.appraiserId, Math.floor(b.appraisedValueCents), b.notes);
     if ("error" in r) return reply.code(404).send(r);
     return r;
   });
