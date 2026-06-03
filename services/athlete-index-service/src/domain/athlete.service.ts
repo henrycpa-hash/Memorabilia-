@@ -110,6 +110,13 @@ const lastTradePrice = new Map<string, number>(); // athleteId -> last fill pric
 const HOLDER_DIVIDEND_RATE = 0.25; // 25% of the athlete royalty shared with holders
 const dividends = new Map<string, number>(); // userId -> total dividend cents earned
 
+/* ----- automated market maker: always-on liquidity around the index price ----- */
+const MM_USER = "cx_market_maker";
+const MM_INVENTORY = 80_000; // shares the MM holds per athlete to quote the ask side
+const MM_LEVELS = 5; // ladder depth each side
+const MM_SPREAD = 0.012; // ~1.2% per level away from mid
+const MM_SIZE = 500; // shares per level
+
 /* ----- appraiser human-in-the-loop queue ----- */
 export interface Appraisal {
   id: string;
@@ -130,6 +137,7 @@ const appraisals: Appraisal[] = [];
 const XP_URL = () => process.env.XP_SERVICE_URL || "http://localhost:4073";
 /** Liquidity is health — a fill earns light XP (canonical economy: sale_completed). */
 function grantStakeholderXp(userId: string) {
+  if (userId === MM_USER) return; // the market maker is a bot, not a stakeholder
   fetch(`${XP_URL()}/xp/grant`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId, action: "sale_completed" }) }).catch(() => undefined);
 }
 
@@ -208,6 +216,9 @@ function seed() {
     athletes.set(id, a);
     seedTimeline(a);
     seedHistory(a);
+    // market-maker inventory (float held by the exchange to quote the ask side)
+    holdingFor(id, MM_USER).shares = MM_INVENTORY;
+    a.fractionsSold += MM_INVENTORY;
   }
 }
 seed();
@@ -383,7 +394,7 @@ export const athleteService = {
 
     // stakeholder dividend: share a slice of the royalty pro-rata with fractional holders
     const holderPool = Math.round(athleteRoyaltyCents * HOLDER_DIVIDEND_RATE);
-    const heldShares = holdings.filter((h) => h.athleteId === id && h.shares > 0);
+    const heldShares = holdings.filter((h) => h.athleteId === id && h.shares > 0 && h.userId !== MM_USER);
     const totalHeld = heldShares.reduce((s, h) => s + h.shares, 0);
     if (totalHeld > 0 && holderPool > 0) {
       for (const h of heldShares) {
@@ -631,7 +642,7 @@ export const athleteService = {
     return {
       athleteId: id,
       holders: holdings
-        .filter((h) => h.athleteId === id && h.shares > 0)
+        .filter((h) => h.athleteId === id && h.shares > 0 && h.userId !== MM_USER)
         .sort((x, y) => y.shares - x.shares)
         .slice(0, 10)
         .map((h, i) => ({ rank: i + 1, userId: h.userId, shares: h.shares, valueDisplay: formatUsdCents(h.shares * idx.pricePerShareCents) }))
@@ -640,6 +651,37 @@ export const athleteService = {
 
   /** holdingFor used by order matching (creates a zero holding if absent). */
   _holdingFor: holdingFor,
+
+  /** Automated market maker: quote a fresh bid/ask ladder around the index price
+   *  so the book always has liquidity. Cancels + prunes the MM's prior quotes. */
+  marketMake(id: string) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    // cancel + prune the MM's prior orders for this athlete (bounds memory)
+    for (let i = orders.length - 1; i >= 0; i--) {
+      const o = orders[i];
+      if (o.userId !== MM_USER || o.athleteId !== id) continue;
+      if (o.status === "open" || o.status === "partial") o.status = "cancelled";
+      if (o.status === "cancelled" || o.status === "filled") orders.splice(i, 1);
+    }
+    const mid = lastTradePrice.get(id) || indexOf(a).pricePerShareCents;
+    let placed = 0;
+    for (let k = 1; k <= MM_LEVELS; k++) {
+      const bid = Math.max(1, Math.round(mid * (1 - MM_SPREAD * k)));
+      const ask = Math.round(mid * (1 + MM_SPREAD * k));
+      const rb = this.placeOrder(id, MM_USER, "buy", MM_SIZE, bid);
+      const ra = this.placeOrder(id, MM_USER, "sell", MM_SIZE, ask);
+      if ("ok" in rb) placed++;
+      if ("ok" in ra) placed++;
+    }
+    return { ok: true as const, athleteId: id, midCents: mid, midDisplay: formatUsdCents(mid), quotesPlaced: placed, book: this.orderBook(id) };
+  },
+
+  /** Re-quote liquidity for every athlete (called on boot + on an interval). */
+  marketMakeAll() {
+    for (const a of athletes.values()) this.marketMake(a.id);
+    return { ok: true as const, athletes: athletes.size };
+  },
 
   /** Real-time, ready-made audit package for auditors / regulators. */
   auditPackage(id: string) {
@@ -664,3 +706,9 @@ export const athleteService = {
   /** Verify a single anchored fact (auditor/regulator self-check). */
   verifyAnchorFact: (kind: string, payload: unknown, receipt: AnchorReceipt) => verifyAnchor(kind, payload, receipt)
 };
+
+// seed always-on liquidity, then re-quote around the moving price on an interval
+athleteService.marketMakeAll();
+const MM_REQUOTE_MS = Number(process.env.MM_REQUOTE_MS || 60000);
+const mmTimer = setInterval(() => athleteService.marketMakeAll(), MM_REQUOTE_MS);
+if (typeof mmTimer.unref === "function") mmTimer.unref();

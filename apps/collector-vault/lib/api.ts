@@ -42,3 +42,15 @@ export async function clientPost<T>(path: string, body: unknown, token?: string)
 }
 
 export const ACCESS_COOKIE_NAME = ACCESS_COOKIE;
+
+/** Decode the signed-in user's id (JWT sub) from the session cookie, server-side. */
+export async function currentUserId(): Promise<string | null> {
+  const store = await cookies();
+  const token = store.get(ACCESS_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    return JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).sub as string;
+  } catch {
+    return null;
+  }
+}

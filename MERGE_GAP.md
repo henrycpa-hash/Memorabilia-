@@ -120,6 +120,20 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
   gateway. NOTE: the api-gateway preview can hang after many hot-reloads under
   heavy process load — stop+start it (preview) to recover; the proxies are fine.
 
+## C5 · Auto-market-making + net-worth hero (DONE)
+
+- **Automated market maker** in `athlete-index-service`: a designated MM holds
+  inventory per athlete and quotes a fresh bid/ask ladder (5 levels each side,
+  ~1.2% spread, 500 shares/level) around the index price — seeded on boot and
+  re-quoted on an interval. The book always has liquidity, so a fan can buy/sell
+  fractions instantly without waiting for a human counterparty (verified: a
+  buy crossed the MM ask and filled immediately). The MM is excluded from
+  stakeholder XP, dividends, and the top-stakeholders leaderboard. Manual
+  re-quote: `POST /api/athletes/:id/market-make`.
+- **Net-worth hero on the dashboard**: server-side `currentUserId()` decodes the
+  session, fetches `/api/portfolio/:userId`, and renders a gold net-worth banner
+  (net worth + royalties + P&L) linking into `/wealth` — the daily loop entry.
+
 ## C4 · Wealth daily-loop, hardening & demo users (DONE)
 
 - **Wealth daily-loop** (`/wealth`): net-worth hero, daily check-in streak (→XP),

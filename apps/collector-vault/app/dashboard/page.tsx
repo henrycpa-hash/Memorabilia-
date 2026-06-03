@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { authedGet, publicGet } from "../../lib/api";
+import { authedGet, publicGet, currentUserId } from "../../lib/api";
 import { LiveFloor } from "../_components/LiveFloor";
 import {
   Panel,
@@ -18,6 +18,7 @@ type Asset = { id: string };
 type Notification = { id: string; status: string; title?: string; body?: string; type?: string; createdAt?: string };
 type LeaderRow = { rank: number; userId: string; xp: number; level: number; tier: string };
 type AthleteRow = { id: string; slug: string; name: string; sport: string; team: string; priceDisplay: string; change24h: number };
+type Wealth = { display: { netWorth: string; royaltyDividends: string; unrealized: string } };
 
 const SAMPLE_FEED: FeedEvent[] = [
   { id: "f1", actor: "vaultmaster", level: 72, kind: "mint", text: "minted a Genesis slab · Game-Worn '24", meta: "2m ago · COA #A7F3" },
@@ -27,11 +28,13 @@ const SAMPLE_FEED: FeedEvent[] = [
 ];
 
 export default async function DashboardPage() {
-  const [vault, notifications, leaderboard, athletes] = await Promise.all([
+  const uid = await currentUserId();
+  const [vault, notifications, leaderboard, athletes, wealth] = await Promise.all([
     authedGet<Asset[]>("/api/vault/me"),
     authedGet<Notification[]>("/api/notifications/me"),
     publicGet<LeaderRow[]>("/api/xp/leaderboard?limit=5"),
-    publicGet<AthleteRow[]>("/api/athletes")
+    publicGet<AthleteRow[]>("/api/athletes"),
+    uid ? publicGet<Wealth>(`/api/portfolio/${uid}`) : Promise.resolve(null)
   ]);
 
   if (vault === null) {
@@ -68,6 +71,24 @@ export default async function DashboardPage() {
   return (
     <section>
       <SectionTag>Vault Dashboard</SectionTag>
+
+      {/* net-worth hero — your wealth at a glance, into the daily loop */}
+      <Link href="/wealth" style={{ textDecoration: "none", color: "inherit" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "20px 22px", borderRadius: 18, marginBottom: 20, border: "1px solid rgba(217,168,46,0.3)", background: "linear-gradient(135deg, rgba(217,168,46,0.08), rgba(63,217,212,0.04))" }}>
+          <div>
+            <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: color.gold }}>Net worth</div>
+            <div style={{ fontFamily: font.display, fontSize: 52, lineHeight: 0.9, marginTop: 4, background: "linear-gradient(180deg,#fff,#f7e08a 55%,#8a6310)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+              {wealth?.display.netWorth || "$0.00"}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <Badge tone="gold">{wealth?.display.royaltyDividends || "$0"} royalties</Badge>
+            <Badge tone="win">{wealth?.display.unrealized || "$0"} P&amp;L</Badge>
+            <span style={{ fontFamily: font.mono, fontSize: 11, color: color.cyan }}>Open Wealth →</span>
+          </div>
+        </div>
+      </Link>
+
       <h1 style={{ fontFamily: font.display, fontWeight: 400, fontSize: 40, margin: "0 0 20px" }}>Your collection, alive.</h1>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>

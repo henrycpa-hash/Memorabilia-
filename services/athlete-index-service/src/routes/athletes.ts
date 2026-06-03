@@ -154,6 +154,14 @@ export function registerAthleteRoutes(app: FastifyInstance) {
     return athleteService.portfolio(userId);
   });
 
+  // automated market maker — manually re-quote liquidity for an athlete
+  app.post("/athletes/:id/market-make", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const r = athleteService.marketMake(id);
+    if ("error" in r) return reply.code(404).send(r);
+    return r;
+  });
+
   // ---- appraiser human-in-the-loop queue ----
   app.get("/appraisals", async (request) => {
     const { status } = request.query as { status?: Appraisal["status"] };
