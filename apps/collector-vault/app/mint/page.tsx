@@ -26,6 +26,7 @@ type MintResult = {
   provenance?: { coaNumber: string; l2TxHash: string; l1AnchorBlock: string };
   price: { valueDisplay: string; confidence: number };
   coa: { coaNumber: string } | null;
+  coaArtifact?: { id: string; tokenId: string; viewUrl: string; immersive: boolean } | null;
   xp: { gained: number; level: number; tier: string; leveledUp: boolean } | null;
 };
 type Source = { id: string; name: string; url: string; role: string };
@@ -145,6 +146,13 @@ export default function MintPage() {
                   <Badge tone="gold">Weighted value {result.price.valueDisplay}</Badge>
                   <span style={{ fontFamily: font.mono, fontSize: 9, color: color.mut, marginLeft: 8 }}>· {result.price.confidence}% data confidence</span>
                 </div>
+                {result.coaArtifact && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${color.line}` }}>
+                    <div style={{ fontFamily: font.mono, fontSize: 9, color: color.mut, textTransform: "uppercase", marginBottom: 6 }}>Genesis COA Artifact · 3D/4D + AR/VR</div>
+                    <ButtonLink href={result.coaArtifact.viewUrl} as={Link} variant="primary">View COA in 3D/AR →</ButtonLink>
+                    <span style={{ fontFamily: font.mono, fontSize: 9, color: color.mut2, marginLeft: 8 }}>dual-pane · unlockables · Meta Quest / AR glasses</span>
+                  </div>
+                )}
               </Panel>
               <Panel>
                 <SectionTag>Rank climb</SectionTag>

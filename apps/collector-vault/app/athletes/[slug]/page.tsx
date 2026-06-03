@@ -36,12 +36,14 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
       </Panel>
     );
   }
-  const [ledger, circle, stake, vault] = await Promise.all([
+  const [ledger, circle, stake, vault, coaList] = await Promise.all([
     publicGet<Royalty[]>(`/api/athletes/${a.id}/royalty-ledger`),
     publicGet<Circle>(`/api/athletes/${a.id}/legacy`),
     publicGet<{ holders: Stakeholder[] }>(`/api/athletes/${a.id}/top-stakeholders`),
-    publicGet<RoyaltyVault>(`/api/royalty-vault/athlete/${slug}`)
+    publicGet<RoyaltyVault>(`/api/royalty-vault/athlete/${slug}`),
+    publicGet<{ artifacts: { id: string; athleteId?: string; title: string; valuationDisplay: string }[] }>(`/api/coa-artifact?limit=48`)
   ]);
+  const athleteCoa = (coaList?.artifacts || []).find((c) => c.athleteId === slug) || null;
   const up = a.change24h >= 0;
   const maxContribution = Math.max(...a.index.breakdown.map((b) => b.contributionCents), 1);
 
@@ -237,6 +239,14 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
         {vault && !vault.claimed && vault.display.held !== "$0.00" && (
           <div style={{ marginTop: 12, textAlign: "center" }}>
             <ButtonLink href="/athlete" as={Link} variant="primary">Verify & claim {vault.display.held} →</ButtonLink>
+          </div>
+        )}
+        {athleteCoa && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${color.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, color: color.mut }}>
+              <b style={{ color: color.cyanHi }}>Genesis COA</b> · {athleteCoa.title} — dual-pane 3D/4D, viewable in AR/VR.
+            </div>
+            <ButtonLink href={`/coa/${athleteCoa.id}`} as={Link} variant="secondary">View COA in 3D/AR →</ButtonLink>
           </div>
         )}
       </Panel>

@@ -43,7 +43,8 @@ export function registerCrownxRoutes(app: FastifyInstance) {
       packNShip: process.env.PACK_N_SHIP_SERVICE_URL || "http://localhost:4077",
       authEngine: process.env.AUTH_ENGINE_SERVICE_URL || "http://localhost:4078",
       networkFeed: process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079",
-      royaltyVault: process.env.ROYALTY_VAULT_SERVICE_URL || "http://localhost:4080"
+      royaltyVault: process.env.ROYALTY_VAULT_SERVICE_URL || "http://localhost:4080",
+      coaArtifact: process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081"
     };
     const checks = await Promise.all(
       Object.entries(targets).map(async ([name, base]) => {
@@ -304,4 +305,15 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   app.post("/api/royalty-vault/athlete/:athleteId/donation", async (request, reply) => { const { athleteId } = request.params as { athleteId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/athlete/${athleteId}/donation`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.post("/api/royalty-vault/fan/:originatorId/subscribe", async (request, reply) => { const { originatorId } = request.params as { originatorId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/fan/${originatorId}/subscribe`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.post("/api/royalty-vault/holder/:holderId/lapse", async (request, reply) => { const { holderId } = request.params as { holderId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/holder/${holderId}/lapse`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+
+  // ---- Genesis COA Artifact: 3D/4D dual-pane, unlockables, AR/VR (WebXR) (proxy) ----
+  const coaBase = () => process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081";
+  app.get("/api/coa-artifact", async (request, reply) => { const { limit } = request.query as { limit?: string }; const r = await proxy("GET", `${coaBase()}/coa-artifact${limit ? `?limit=${limit}` : ""}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/coa-artifact/:id", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${coaBase()}/coa-artifact/${id}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/coa-artifact/:id/layers", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${coaBase()}/coa-artifact/${id}/layers`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/coa-artifact", async (request, reply) => { const r = await proxy("POST", `${coaBase()}/coa-artifact`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/coa-artifact/:id/unlock", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${coaBase()}/coa-artifact/${id}/unlock`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/coa-artifact/:id/xr-session", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${coaBase()}/coa-artifact/${id}/xr-session`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/coa-artifact/xr/:sessionId/gesture", async (request, reply) => { const { sessionId } = request.params as { sessionId: string }; const r = await proxy("POST", `${coaBase()}/coa-artifact/xr/${sessionId}/gesture`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/coa-artifact/:id/transfer", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${coaBase()}/coa-artifact/${id}/transfer`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
 }

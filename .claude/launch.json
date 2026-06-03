@@ -198,6 +198,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "royalty-vault-service", "dev"],
       "port": 4080
+    },
+    {
+      "name": "coa-artifact-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "coa-artifact-service", "dev"],
+      "port": 4081
     }
   ]
 }

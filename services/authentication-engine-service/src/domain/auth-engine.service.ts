@@ -28,6 +28,16 @@ import {
  */
 
 const XP_URL = () => process.env.XP_SERVICE_URL || "http://localhost:4073";
+const COA_ARTIFACT_URL = () => process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081";
+
+/**
+ * Fire-and-forget: issue the dynamic Genesis COA Artifact (dual-pane 3D/4D,
+ * unlockables, AR/VR) so the just-minted asset is immediately viewable in the
+ * market + viral shares + headsets. Additive — never blocks/breaks the mint.
+ */
+function issueCoaArtifact(body: Record<string, unknown>): void {
+  fetch(`${COA_ARTIFACT_URL()}/coa-artifact`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => undefined);
+}
 
 interface Session { id: string; deviceClass: string; attested: boolean; createdAt: string }
 export interface IssuedCoa {
@@ -128,6 +138,30 @@ export const authEngine = {
     };
     coas.push(coa);
 
+    // Issue the dynamic Genesis COA Artifact (3D/4D dual-pane, unlockables, AR/VR)
+    const coaArtifactId = `coa_${coa.id}`;
+    issueCoaArtifact({
+      id: coaArtifactId,
+      tokenId,
+      coaNumber: coa.coaNumber,
+      kind: verdict.decision,
+      title: coa.title,
+      assetType: coa.assetType,
+      ownerUserId: input.userId,
+      fingerprintHash: coa.fingerprintHash,
+      sessionDna: proofOfOrigin.pooHash.slice(0, 24),
+      anchorTxRef: coa.anchor.txRef,
+      anchorBlock: coa.anchor.block,
+      anchorChain: coa.anchor.chain,
+      triCodeProof: `tri:${fpReceipt.hash.slice(0, 12)}`,
+      provenanceEvidence: `evt:${coa.anchor.txRef.slice(0, 12)}`,
+      confidence: fusion.confidence,
+      anomalyScore: fusion.anomalyScore,
+      fusionContributions: fusion.contributions,
+      valuationCents: price.valueCents,
+      valuationDisplay: formatUsdCents(price.valueCents)
+    });
+
     // Step 8 — authenticated mint CLIMBS the rank: grant XP via the xp-service
     const count = (mintedBy.get(input.userId) || 0) + 1;
     mintedBy.set(input.userId, count);
@@ -152,6 +186,7 @@ export const authEngine = {
       provenance: { coaNumber: coa.coaNumber, l2TxHash: coa.anchor.txRef, l1AnchorBlock: coa.anchor.block, chain: coa.anchor.chain },
       price: { ...price, valueDisplay: formatUsdCents(price.valueCents) },
       coa,
+      coaArtifact: { id: coaArtifactId, tokenId, viewUrl: `/coa/${coaArtifactId}`, immersive: true },
       xp: rank ? { gained: xpGained, level: rank.level, tier: rank.tier, leveledUp: grants.some((g) => g.leveledUp) } : null
     };
   },

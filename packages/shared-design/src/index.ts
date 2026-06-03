@@ -8,3 +8,5 @@
 export * from "./tokens";
 export { default as tokens } from "./tokens";
 export * from "./components";
+export { CoaViewer3D } from "./CoaViewer3D";
+export type { CoaArtifactView } from "./CoaViewer3D";

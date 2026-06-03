@@ -96,6 +96,51 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C9 · Genesis COA — dynamic 3D/4D artifact + AR/VR (WebXR) (DONE)
+
+From `Genesis COA Artifact Specification.docx` + the Provisional/Non-Provisional
+Addendum: the Genesis COA is no longer a static record — it is a dynamic,
+dual-sided, cryptographically sealed 3D/4D artifact, fully viewable in the
+market, in viral shares, and in immersive AR/VR.
+
+- **`@crownx-jewel/shared-coa`** — the canonical artifact model + `buildGenesisCoa()`:
+  §1 dual-pane (Pane A live-capture video with rolling-nonce / session-DNA /
+  biometric overlays; Pane B RFC-3161 timestamp, geostamp, TEE/TPM device,
+  ownership lineage, redundancy); §4 micro-detail `artifactDescriptor` (surface
+  scan, imperfections/perfections, autograph, invisible UV/IR/taggant/Raman
+  traits, canonical fusion vector); §5 cryptographic anchors (session DNA,
+  vector hash, tri-code proof, provenance evidence, dual L2/L1 chain anchor,
+  SHA3-512 + Kyber/Dilithium/Falcon, entropy score); the 15 expanded
+  identifiers; §3 unlockable gamified layers (owner/wallet-gated, time-gated,
+  re-sealed on transfer); §2 `XrAccessSpec` (60fps/1080p, immersive-ar/vr,
+  Meta Quest / AR glasses, 2D fallback); ISO 20022 + royalty hooks. Pure +
+  deterministic. `unlockLayer()`, `resealOnTransfer()`, `coaLayers()`, `verifyOverlays()`.
+- **`coa-artifact-service :4081`** — stores/serves artifacts; issues on mint;
+  §3 unlock (tamper-proof record, owner-gated → 403); §2 opens immersive WebXR
+  sessions (PQC session token, gesture logging); transfer re-seal; market/feed
+  gallery. Every issuance/unlock/session anchored via shared-chain. Seeded with
+  4 viewable COAs.
+- **Minting wired**: `authentication-engine-service` now issues a Genesis COA
+  Artifact on every authenticated mint (additive, non-blocking) and returns its
+  `viewUrl`. Counterfeit → no artifact.
+- **`CoaViewer3D`** (shared-design, `"use client"`) — the centerpiece viewer:
+  drag-to-rotate dual-pane holographic card (auto-orbits = the 4D/time axis),
+  flip front↔back, depth-tab inspector (live capture, micro-detail, identifiers,
+  anchors, unlockables with tap-to-unlock), and **real WebXR** — "Enter VR" /
+  "Enter AR" feature-detect `navigator.xr`, request an immersive session, and
+  render the COA as textured quads in the headset via a dependency-free WebGL
+  loop (select flips panes; gestures logged); graceful 2D fallback when no XR.
+- **Surfaced everywhere**: public `/coa` gallery + `/coa/[id]` viewer in
+  collector-vault (nav "COA 3D/AR") with a viral `ShareCoa` (native share +
+  copy link); same viewer/gallery in market-web (buyers inspect before buy);
+  "View COA in 3D/AR" CTA on the mint result; athlete pages link their Genesis
+  COA. Gateway proxies `/api/coa-artifact/*`; `/api/health` covers `coaArtifact`.
+- Smoke (`scripts/smoke-coa-artifact.mjs`): gallery → full artifact (11 3D
+  layers, 11/15 identifiers, overlay valid) → public unlock → owner-only blocked
+  403 → VR session on Meta Quest + gesture log → fresh issue — all green through
+  the gateway. Plus mint→artifact verified live (genesis → viewUrl, xrViewable).
+  Ports now 4073–4081.
+
 ## C8 · Royalty Vault — held-until-claim treasury + athlete claim funnel (DONE)
 
 - **`@crownx-jewel/shared-royalty`** — the canonical smart-contract split engine

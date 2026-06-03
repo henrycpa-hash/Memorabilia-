@@ -32,6 +32,7 @@ services:
       AUTH_ENGINE_SERVICE_URL: http://authentication-engine-service:4078
       NETWORK_FEED_SERVICE_URL: http://network-feed-service:4079
       ROYALTY_VAULT_SERVICE_URL: http://royalty-vault-service:4080
+      COA_ARTIFACT_SERVICE_URL: http://coa-artifact-service:4081
     ports: ["4000:4000"]
     depends_on:
       - identity-service
@@ -124,7 +125,7 @@ services:
   authentication-engine-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/authentication-engine-service } }
     env_file: [../../.env.example]
-    environment: { XP_SERVICE_URL: http://xp-service:4073 }
+    environment: { XP_SERVICE_URL: http://xp-service:4073, COA_ARTIFACT_SERVICE_URL: http://coa-artifact-service:4081 }
     ports: ["4078:4078"]
     depends_on: [xp-service]
   network-feed-service:
@@ -139,6 +140,10 @@ services:
     environment: { XP_SERVICE_URL: http://xp-service:4073 }
     ports: ["4080:4080"]
     depends_on: [xp-service]
+  coa-artifact-service:
+    build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/coa-artifact-service } }
+    env_file: [../../.env.example]
+    ports: ["4081:4081"]
 
   identity-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/identity-service } }
