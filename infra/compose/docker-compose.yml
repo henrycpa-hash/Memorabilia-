@@ -28,6 +28,7 @@ services:
       ATTRIBUTION_SERVICE_URL: http://attribution-service:4074
       PASSKEY_SERVICE_URL: http://passkey-service:4075
       ATHLETE_INDEX_SERVICE_URL: http://athlete-index-service:4076
+      PACK_N_SHIP_SERVICE_URL: http://pack-n-ship-service:4077
     ports: ["4000:4000"]
     depends_on:
       - identity-service
@@ -113,6 +114,10 @@ services:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/athlete-index-service } }
     env_file: [../../.env.example]
     ports: ["4076:4076"]
+  pack-n-ship-service:
+    build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/pack-n-ship-service } }
+    env_file: [../../.env.example]
+    ports: ["4077:4077"]
 
   identity-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/identity-service } }

@@ -40,6 +40,58 @@ export interface IndexOptions {
   brandCapCents?: number;
   /** supply level considered "neutral" for the scarcity factor (default 500) */
   neutralSupply?: number;
+  /** net demand pressure −1..+1 (buys lift, sells dampen) — drives elasticity */
+  demandPressure?: number;
+  /** price elasticity of demand pressure (default 0.3 → up to ±15% swing) */
+  elasticity?: number;
+}
+
+export type ContractKind = "endorsement" | "nil" | "salary" | "sponsor_smart_contract" | "licensing";
+
+export interface AthleteContract {
+  id: string;
+  athleteId: string;
+  counterparty: string;
+  kind: ContractKind;
+  /** annual value in cents */
+  annualValueCents: number;
+  /** length of the deal in years */
+  termYears: number;
+  /** annual discount rate for the DCF (default 0.12) */
+  discountRate?: number;
+  /** royalty/payout share that flows to the athlete index (default 1.0 of value) */
+  royaltyShare?: number;
+  /** ONLY verified contracts feed the valuation */
+  verified: boolean;
+}
+
+export interface ContractDcf {
+  dcfCents: number;
+  totalNominalCents: number;
+  perYearCents: number[];
+}
+
+/** DCF of a single contract over its full life: Σ annual·share / (1+r)^t. */
+export function computeContractDcf(c: AthleteContract): ContractDcf {
+  const r = c.discountRate ?? 0.12;
+  const share = c.royaltyShare ?? 1;
+  const years = Math.max(1, Math.min(40, Math.floor(c.termYears)));
+  const perYearCents: number[] = [];
+  let pv = 0;
+  let nominal = 0;
+  for (let t = 1; t <= years; t++) {
+    const cash = c.annualValueCents * share;
+    nominal += cash;
+    const disc = Math.round(cash / Math.pow(1 + r, t));
+    perYearCents.push(disc);
+    pv += disc;
+  }
+  return { dcfCents: Math.round(pv), totalNominalCents: Math.round(nominal), perYearCents };
+}
+
+/** Sum the DCF of every VERIFIED contract — the athlete's intrinsic floor. */
+export function sumVerifiedContractDcf(contracts: AthleteContract[]): number {
+  return contracts.filter((c) => c.verified).reduce((a, c) => a + computeContractDcf(c).dcfCents, 0);
 }
 
 export interface FactorContribution {
@@ -61,6 +113,7 @@ export interface AthleteIndex {
   dcfComponentCents: number;
   brandComponentCents: number;
   scarcityFactor: number;
+  elasticityFactor: number;
   breakdown: FactorContribution[];
 }
 
@@ -110,8 +163,11 @@ export function computeAthleteIndex(signals: AthleteSignals, opts: IndexOptions)
   // scarcity: fewer collectibles in market → richer per-unit; more → diluted
   const scarcityFactor = clamp(1 + (neutralSupply - signals.marketSupply) / neutralSupply * 0.2, 0.8, 1.25);
 
+  // price elasticity: net buy/sell demand pressure swings the price within a band
+  const elasticityFactor = clamp(1 + clamp(opts.demandPressure ?? 0, -1, 1) * (opts.elasticity ?? 0.3) * 0.5, 0.75, 1.3);
+
   const dcfComponentCents = Math.max(0, Math.round(signals.royaltyDcfCents));
-  const marketCapCents = Math.round((dcfComponentCents + brandComponentCents) * scarcityFactor);
+  const marketCapCents = Math.round((dcfComponentCents + brandComponentCents) * scarcityFactor * elasticityFactor);
   const pricePerShareCents = Math.max(1, Math.round(marketCapCents / Math.max(1, opts.sharesOutstanding)));
 
   const breakdown: FactorContribution[] = normalized.map((n) => ({
@@ -129,7 +185,7 @@ export function computeAthleteIndex(signals: AthleteSignals, opts: IndexOptions)
     contributionCents: Math.round(dcfComponentCents * scarcityFactor)
   });
 
-  return { marketCapCents, pricePerShareCents, sharesOutstanding: opts.sharesOutstanding, brandScore: Math.round(brandScore * 10) / 10, dcfComponentCents, brandComponentCents, scarcityFactor: Math.round(scarcityFactor * 1000) / 1000, breakdown };
+  return { marketCapCents, pricePerShareCents, sharesOutstanding: opts.sharesOutstanding, brandScore: Math.round(brandScore * 10) / 10, dcfComponentCents, brandComponentCents, scarcityFactor: Math.round(scarcityFactor * 1000) / 1000, elasticityFactor: Math.round(elasticityFactor * 1000) / 1000, breakdown };
 }
 
 export function formatUsdCents(cents: number): string {

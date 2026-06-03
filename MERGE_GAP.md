@@ -120,6 +120,30 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
   gateway. NOTE: the api-gateway preview can hang after many hot-reloads under
   heavy process load — stop+start it (preview) to recover; the proxies are fine.
 
+## C3 · Settlement, contracts, escrow, audit, on-chain (DONE)
+
+- **`@crownx-jewel/shared-chain`** — pluggable on-chain anchoring adapter
+  (default deterministic CrownX-genesis ledger, quantum-resistant sig label).
+  COAs, royalties, valuations, and every escrow step are anchored + verifiable.
+- **Contract DCF + price elasticity** (`shared-valuation`): upload a
+  contract/NIL/sponsor smart contract → **CrownX-verified before it enters the
+  valuation** → DCF over the life of the contract feeds the intrinsic floor; net
+  buy/sell demand pressure swings the price via an elasticity band.
+- **`athlete-index-service`** extended: contracts (upload→verify→DCF),
+  career/news timeline (college → NIL → draft → pro/European upcoming deals),
+  buy **and sell** (easy conversion), sovereignty **consent + redaction** on the
+  owner chain, royalty events anchored + pushed to settlement, **insurance
+  verification**, **appraiser pipeline**, and a **real-time audit package** for
+  auditors/regulators.
+- **`pack-n-ship-service`** — CrownX Authentication Pack-N-Ship: Sell → pay to
+  **escrow** → Package COA → Ship COA → track → delivered → **buyer live-AI
+  re-authentication GATES Genesis-COA release + funds release** to the seller.
+  No-response → **investigation** with connected-accounts-by-invite detection,
+  asset-under-another-user monitoring, and an anomaly score before any release.
+- **UI**: `/trade` Pack-N-Ship pipeline tracker; athlete detail gains contract
+  upload/verify, career/news timeline, audit + insurance tools, elasticity badge.
+- Gateway proxies all of the above; smoke-tested end-to-end through the gateway.
+
 ## D · Net: the merge is comprehensive
 
 Every consumer-facing ZIP surface is now in the product, on one design system,

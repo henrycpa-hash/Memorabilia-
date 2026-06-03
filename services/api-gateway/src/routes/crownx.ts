@@ -186,4 +186,28 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   app.get("/api/athletes/:id/royalty-ledger", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/royalty-ledger`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.get("/api/athletes/:id/legacy/:assetId", async (request, reply) => { const { id, assetId } = request.params as { id: string; assetId: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/legacy/${assetId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.get("/api/athletes/:id/legacy", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/legacy`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/athletes/:id/fractions/sell", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${athBase()}/athletes/${id}/fractions/sell`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  // contracts → DCF (CrownX-verified before valuation)
+  app.post("/api/athletes/:id/contracts", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${athBase()}/athletes/${id}/contracts`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/athletes/:id/contracts/:contractId/verify", async (request, reply) => { const { id, contractId } = request.params as { id: string; contractId: string }; const r = await proxy("POST", `${athBase()}/athletes/${id}/contracts/${contractId}/verify`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/athletes/:id/contracts", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/contracts`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  // career/news timeline
+  app.post("/api/athletes/:id/timeline", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${athBase()}/athletes/${id}/timeline`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/athletes/:id/timeline", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/timeline`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  // sovereignty consent / insurance / appraisal / audit
+  app.post("/api/athletes/:id/legacy/:assetId/consent", async (request, reply) => { const { id, assetId } = request.params as { id: string; assetId: string }; const r = await proxy("POST", `${athBase()}/athletes/${id}/legacy/${assetId}/consent`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/athletes/:id/insurance-verify/:assetId", async (request, reply) => { const { id, assetId } = request.params as { id: string; assetId: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/insurance-verify/${assetId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/athletes/:id/appraisal", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${athBase()}/athletes/${id}/appraisal`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/athletes/:id/audit-package", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/audit-package`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+
+  // ---- Pack-N-Ship escrow + COA-gated settlement (proxy) ----
+  const pnsBase = () => process.env.PACK_N_SHIP_SERVICE_URL || "http://localhost:4077";
+  app.get("/api/trades", async (_req, reply) => { const r = await proxy("GET", `${pnsBase()}/trades`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/trades", async (request, reply) => { const r = await proxy("POST", `${pnsBase()}/trades`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/trades/:id", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${pnsBase()}/trades/${id}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/trades/:id/track", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${pnsBase()}/trades/${id}/track`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  for (const a of ["pay", "package", "ship", "delivered", "authenticate", "investigate"]) {
+    app.post(`/api/trades/:id/${a}`, async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${pnsBase()}/trades/${id}/${a}`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  }
+  app.post("/api/invites", async (request, reply) => { const r = await proxy("POST", `${pnsBase()}/invites`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
 }

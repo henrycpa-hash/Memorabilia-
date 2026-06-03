@@ -4,14 +4,18 @@ import { SectionTag, Panel, Badge, ButtonLink, color, font } from "@crownx-jewel
 import { AthleteChart } from "../AthleteChart";
 import { FractionBuy } from "../FractionBuy";
 import { ShareAthlete } from "../ShareAthlete";
+import { AthleteTools } from "../AthleteTools";
 
 type Factor = { factor: string; label: string; weight: number; score: number; contributionCents: number };
+type Contract = { id: string; counterparty: string; kind: string; annualValueCents: number; termYears: number; verified: boolean };
+type TimelineEvent = { id: string; kind: string; title: string; detail?: string; date: string };
 type Detail = {
   id: string; slug: string; name: string; sport: string; team: string;
   signals: Record<string, number>;
-  index: { pricePerShareCents: number; marketCapCents: number; brandScore: number; dcfComponentCents: number; brandComponentCents: number; scarcityFactor: number; breakdown: Factor[] };
+  index: { pricePerShareCents: number; marketCapCents: number; brandScore: number; dcfComponentCents: number; brandComponentCents: number; scarcityFactor: number; elasticityFactor: number; breakdown: Factor[] };
   priceDisplay: string; marketCapDisplay: string; change24h: number;
   sharesOutstanding: number; fractionsSold: number; fractionsAvailable: number;
+  contractsDcfCents: number; contracts: Contract[]; timeline: TimelineEvent[];
   history: { priceCents: number; event?: { kind: string; tag: string; label: string; note?: string } }[];
 };
 type Royalty = { athleteRoyaltyCents: number; salePriceCents: number; chainTxRef: string; fromUserId: string; toUserId: string; ts: string };
@@ -87,6 +91,8 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
           <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
             <Badge tone="gold">DCF floor {fmt(a.index.dcfComponentCents)}</Badge>
             <Badge tone="cyan">Brand {a.index.brandScore}/100</Badge>
+            <Badge tone={a.index.elasticityFactor >= 1 ? "win" : "hot"}>Elasticity {a.index.elasticityFactor}×</Badge>
+            {a.contractsDcfCents > 0 && <Badge tone="gold">Contracts {fmt(a.contractsDcfCents)}</Badge>}
           </div>
         </Panel>
 
@@ -96,6 +102,50 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${color.line}`, fontSize: 12, color: color.mut }}>
             {a.fractionsSold.toLocaleString()} / {a.sharesOutstanding.toLocaleString()} shares held by fans. As a stakeholder you share in the athlete&apos;s rise — and earn XP.
           </div>
+        </Panel>
+      </div>
+
+      {/* contracts, audit, insurance tools */}
+      <AthleteTools athleteId={a.id} />
+
+      {/* career / news timeline + verified contracts */}
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", marginTop: 16 }}>
+        <Panel>
+          <SectionTag>Career &amp; news history</SectionTag>
+          <p style={{ color: color.mut, fontSize: 12, margin: "0 0 12px" }}>The full record that builds the value — college, NIL, draft, and upcoming-deal signals.</p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(a.timeline || []).map((t) => {
+              const upcoming = t.kind === "upcoming_deal";
+              return (
+                <div key={t.id} style={{ display: "flex", gap: 10, padding: "9px 11px", border: `1px solid ${upcoming ? "rgba(217,168,46,0.35)" : color.line}`, borderRadius: 10, background: upcoming ? "rgba(217,168,46,0.05)" : "rgba(255,255,255,0.02)" }}>
+                  <span style={{ fontFamily: font.mono, fontSize: 9, color: color.mut2, width: 70, flex: "none" }}>{t.date}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, color: color.txt }}>{t.title}</div>
+                    {t.detail && <div style={{ fontSize: 11, color: color.mut, marginTop: 2 }}>{t.detail}</div>}
+                  </div>
+                  <Badge tone={upcoming ? "gold" : "mut"}>{t.kind.replace(/_/g, " ")}</Badge>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+        <Panel>
+          <SectionTag>Verified contracts → DCF</SectionTag>
+          {(a.contracts || []).length === 0 ? (
+            <p style={{ color: color.mut, fontSize: 12, margin: 0 }}>No contracts uploaded yet. Upload one above — it&apos;s CrownX-verified before its DCF enters the valuation.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {a.contracts.map((c) => (
+                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 11px", border: `1px solid ${color.line}`, borderRadius: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 12.5, color: color.txt }}>{c.counterparty} · {c.kind.toUpperCase()}</div>
+                    <div style={{ fontFamily: font.mono, fontSize: 10, color: color.mut2 }}>{fmt(c.annualValueCents)}/yr × {c.termYears}y</div>
+                  </div>
+                  <Badge tone={c.verified ? "win" : "mut"}>{c.verified ? "verified ✓" : "pending"}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </Panel>
       </div>
 

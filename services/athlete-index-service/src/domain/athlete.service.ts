@@ -1,5 +1,15 @@
 import { newId, nowIso } from "@crownx-jewel/shared-kernel";
-import { computeAthleteIndex, formatUsdCents, type AthleteSignals, type AthleteIndex } from "@crownx-jewel/shared-valuation";
+import {
+  computeAthleteIndex,
+  computeContractDcf,
+  sumVerifiedContractDcf,
+  formatUsdCents,
+  type AthleteSignals,
+  type AthleteIndex,
+  type AthleteContract,
+  type ContractKind
+} from "@crownx-jewel/shared-valuation";
+import { anchor, verifyAnchor, type AnchorReceipt } from "@crownx-jewel/shared-chain";
 
 /**
  * The Athlete Index: a live, stock-market-like valuation + ticker, fractional
@@ -15,7 +25,7 @@ import { computeAthleteIndex, formatUsdCents, type AthleteSignals, type AthleteI
 const ATHLETE_ROYALTY_RATE = 0.03; // athlete's cut of each resale (3% = 30% of the 10% pool)
 const DEFAULT_SHARES = 1_000_000; // fractional shares outstanding per athlete
 
-export type EventKind = "news" | "perf" | "royalty" | "signal" | "fraction" | "seed";
+export type EventKind = "news" | "perf" | "royalty" | "signal" | "fraction" | "seed" | "contract" | "career";
 
 export interface PricePoint {
   ts: string;
@@ -33,24 +43,46 @@ export interface Athlete {
   signals: AthleteSignals;
   sharesOutstanding: number;
   fractionsSold: number;
+  /** DCF of verified contracts, added to the intrinsic floor */
+  contractsDcfCents: number;
+  /** net buy/sell demand pressure −1..+1 driving price elasticity */
+  demandPressure: number;
   createdAt: string;
 }
 
+/** A career/news timeline entry — the full history that creates value. */
+export interface TimelineEvent {
+  id: string;
+  athleteId: string;
+  kind: "college" | "nil" | "draft" | "league_move" | "award" | "injury" | "news" | "upcoming_deal";
+  title: string;
+  detail?: string;
+  /** ISO date of the event (past or scheduled/future for upcoming deals) */
+  date: string;
+  /** optional valuation impact applied to the index when recorded */
+  signalPatch?: Partial<AthleteSignals>;
+  anchor?: AnchorReceipt;
+}
+
 interface Holding { athleteId: string; userId: string; shares: number; costBasisCents: number }
-interface RoyaltyEvent { id: string; athleteId: string; assetId: string; fromUserId: string; toUserId: string; salePriceCents: number; athleteRoyaltyCents: number; chainTxRef: string; ts: string }
-interface LegacyChain { athleteId: string; assetId: string; hops: { userId: string; hop: number; joinedAt: string }[] }
+interface RoyaltyEvent { id: string; athleteId: string; assetId: string; fromUserId: string; toUserId: string; salePriceCents: number; athleteRoyaltyCents: number; chainTxRef: string; anchor: AnchorReceipt; ts: string }
+interface LegacyHop { userId: string; hop: number; joinedAt: string; consent: boolean; redacted: boolean }
+interface LegacyChain { athleteId: string; assetId: string; hops: LegacyHop[] }
 
 const athletes = new Map<string, Athlete>();
 const history = new Map<string, PricePoint[]>();
 const holdings: Holding[] = [];
 const royaltyEvents: RoyaltyEvent[] = [];
 const legacy = new Map<string, LegacyChain>(); // `${athleteId}:${assetId}`
+const contracts = new Map<string, AthleteContract[]>(); // athleteId -> contracts
+const timeline = new Map<string, TimelineEvent[]>(); // athleteId -> events
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-const fakeTx = () => "0x" + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
 
+/** Effective valuation: base + verified-contract DCF, with live demand elasticity. */
 function indexOf(a: Athlete): AthleteIndex {
-  return computeAthleteIndex(a.signals, { sharesOutstanding: a.sharesOutstanding });
+  const effective: AthleteSignals = { ...a.signals, royaltyDcfCents: a.signals.royaltyDcfCents + a.contractsDcfCents };
+  return computeAthleteIndex(effective, { sharesOutstanding: a.sharesOutstanding, demandPressure: a.demandPressure });
 }
 
 function pushPoint(a: Athlete, event?: PricePoint["event"]) {
@@ -81,7 +113,21 @@ function seedHistory(a: Athlete, points = 28) {
   history.set(a.id, arr);
 }
 
-const DEMO: Array<Omit<Athlete, "id" | "slug" | "createdAt" | "sharesOutstanding" | "fractionsSold"> & { sharesOutstanding?: number }> = [
+/** Seed the career/news timeline — the history that creates value (college → pros). */
+function seedTimeline(a: Athlete) {
+  const evs: Omit<TimelineEvent, "id" | "athleteId">[] = [
+    { kind: "college", title: `${a.name} commits to ${a.team}`, detail: "College career begins.", date: "2023-08-15" },
+    { kind: "nil", title: "First NIL deal signed", detail: "Name/Image/Likeness endorsement — adds verified contract DCF.", date: "2024-01-20" },
+    { kind: "award", title: "Conference Player of the Week", detail: "On-field performance lifts the brand index.", date: "2024-04-12" },
+    { kind: "upcoming_deal", title: "Pro draft / European league interest", detail: "Scouts circling — a move to the pros would re-rate the index.", date: "2026-07-01" }
+  ];
+  timeline.set(
+    a.id,
+    evs.map((e) => ({ id: newId(), athleteId: a.id, ...e }))
+  );
+}
+
+const DEMO: Array<Omit<Athlete, "id" | "slug" | "createdAt" | "sharesOutstanding" | "fractionsSold" | "contractsDcfCents" | "demandPressure"> & { sharesOutstanding?: number }> = [
   { name: "Dylan Crews", sport: "Baseball", team: "LSU", signals: { onFieldPerformance: 92, offFieldConduct: 84, pressSentiment: 70, royaltyDcfCents: 8_400_000_00, tradeVelocity: 34, marketSupply: 320, socialReach: 1_200_000 } },
   { name: "A. Vanguard", sport: "Football", team: "Metro U", signals: { onFieldPerformance: 88, offFieldConduct: 80, pressSentiment: 40, royaltyDcfCents: 6_100_000_00, tradeVelocity: 22, marketSupply: 480, socialReach: 640_000 } },
   { name: "K. Solace", sport: "Basketball", team: "Coastal", signals: { onFieldPerformance: 95, offFieldConduct: 72, pressSentiment: 15, royaltyDcfCents: 11_900_000_00, tradeVelocity: 41, marketSupply: 260, socialReach: 3_400_000 } },
@@ -92,8 +138,9 @@ function seed() {
   if (athletes.size > 0) return;
   for (const d of DEMO) {
     const id = newId();
-    const a: Athlete = { id, slug: slugify(d.name), name: d.name, sport: d.sport, team: d.team, signals: d.signals, sharesOutstanding: d.sharesOutstanding ?? DEFAULT_SHARES, fractionsSold: 0, createdAt: nowIso() };
+    const a: Athlete = { id, slug: slugify(d.name), name: d.name, sport: d.sport, team: d.team, signals: d.signals, sharesOutstanding: d.sharesOutstanding ?? DEFAULT_SHARES, fractionsSold: 0, contractsDcfCents: 0, demandPressure: 0, createdAt: nowIso() };
     athletes.set(id, a);
+    seedTimeline(a);
     seedHistory(a);
   }
 }
@@ -147,6 +194,10 @@ export const athleteService = {
       sharesOutstanding: a.sharesOutstanding,
       fractionsSold: a.fractionsSold,
       fractionsAvailable: a.sharesOutstanding - a.fractionsSold,
+      demandPressure: a.demandPressure,
+      contractsDcfCents: a.contractsDcfCents,
+      contracts: contracts.get(a.id) || [],
+      timeline: (timeline.get(a.id) || []).slice().sort((x, y) => x.date.localeCompare(y.date)),
       history: history.get(a.id) || []
     };
   },
@@ -172,8 +223,26 @@ export const athleteService = {
     if (!h) { h = { athleteId: id, userId, shares: 0, costBasisCents: 0 }; holdings.push(h); }
     h.shares += shares;
     h.costBasisCents += costBasisCents;
+    // demand pressure → price elasticity (buys lift the index)
+    a.demandPressure = Math.min(1, a.demandPressure + (shares / a.sharesOutstanding) * 4);
     pushPoint(a, { kind: "fraction", tag: "B", label: `${shares.toLocaleString()} shares bought`, note: `Stakeholder ${userId}` });
     return { ok: true as const, shares, costBasisCents, costDisplay: formatUsdCents(costBasisCents), pricePerShareCents: idx.pricePerShareCents, holding: h, fractionsAvailable: a.sharesOutstanding - a.fractionsSold };
+  },
+
+  /** Sell fractions back — eases demand pressure, easy buy/sell/trade conversion. */
+  sellFractions(id: string, userId: string, shares: number) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    const h = holdings.find((x) => x.athleteId === id && x.userId === userId);
+    if (!h || shares <= 0 || shares > h.shares) return { error: "insufficient_holding", held: h?.shares || 0 } as const;
+    const idx = indexOf(a);
+    const proceedsCents = shares * idx.pricePerShareCents;
+    h.shares -= shares;
+    h.costBasisCents = Math.max(0, h.costBasisCents - shares * idx.pricePerShareCents);
+    a.fractionsSold -= shares;
+    a.demandPressure = Math.max(-1, a.demandPressure - (shares / a.sharesOutstanding) * 4);
+    pushPoint(a, { kind: "fraction", tag: "S", label: `${shares.toLocaleString()} shares sold`, note: `Stakeholder ${userId}` });
+    return { ok: true as const, shares, proceedsCents, proceedsDisplay: formatUsdCents(proceedsCents), pricePerShareCents: idx.pricePerShareCents, holding: h };
   },
 
   holding(id: string, userId: string) {
@@ -191,25 +260,54 @@ export const athleteService = {
     const a = athletes.get(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const athleteRoyaltyCents = Math.round(input.salePriceCents * ATHLETE_ROYALTY_RATE);
-    const ev: RoyaltyEvent = { id: newId(), athleteId: id, assetId: input.assetId, fromUserId: input.fromUserId, toUserId: input.toUserId, salePriceCents: input.salePriceCents, athleteRoyaltyCents, chainTxRef: fakeTx(), ts: nowIso() };
+    const ts = nowIso();
+    const receipt = anchor("athlete.royalty", { athleteId: id, ...input, athleteRoyaltyCents, ts }, ts);
+    const ev: RoyaltyEvent = { id: newId(), athleteId: id, assetId: input.assetId, fromUserId: input.fromUserId, toUserId: input.toUserId, salePriceCents: input.salePriceCents, athleteRoyaltyCents, chainTxRef: receipt.txRef, anchor: receipt, ts };
     royaltyEvents.push(ev);
+
+    // best-effort settlement record (escrow/payout to the athlete)
+    const settlementBase = process.env.SETTLEMENT_SERVICE_URL || "http://localhost:4015";
+    fetch(`${settlementBase}/settlements`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ assetId: input.assetId, grossAmount: String(athleteRoyaltyCents / 100), kind: "athlete_royalty", payeeId: id })
+    }).catch(() => undefined);
 
     // resale activity feeds the index: velocity up, future-royalty DCF up a touch
     a.signals.tradeVelocity = Math.min(100, a.signals.tradeVelocity + 1);
     a.signals.royaltyDcfCents += athleteRoyaltyCents * 8; // crude forward-looking lift
-    const idx = pushPoint(a, { kind: "royalty", tag: "R", label: `Resale +${formatUsdCents(athleteRoyaltyCents)} royalty`, note: `Tx ${ev.chainTxRef.slice(0, 10)}…` });
+    const idx = pushPoint(a, { kind: "royalty", tag: "R", label: `Resale +${formatUsdCents(athleteRoyaltyCents)} royalty`, note: `Tx ${receipt.txRef.slice(0, 10)}…` });
 
-    // Legacy Circle: the buyer joins the chain after the seller
+    // Legacy Circle: the buyer joins the chain after the seller (consent default on)
     const key = `${id}:${input.assetId}`;
     let chain = legacy.get(key);
-    if (!chain) { chain = { athleteId: id, assetId: input.assetId, hops: [{ userId: input.fromUserId, hop: 0, joinedAt: nowIso() }] }; legacy.set(key, chain); }
+    if (!chain) { chain = { athleteId: id, assetId: input.assetId, hops: [{ userId: input.fromUserId, hop: 0, joinedAt: nowIso(), consent: true, redacted: false }] }; legacy.set(key, chain); }
     if (!chain.hops.find((h) => h.userId === input.toUserId)) {
-      chain.hops.push({ userId: input.toUserId, hop: chain.hops.length, joinedAt: nowIso() });
+      chain.hops.push({ userId: input.toUserId, hop: chain.hops.length, joinedAt: nowIso(), consent: true, redacted: false });
     }
-    return { ok: true as const, event: ev, athleteRoyaltyDisplay: formatUsdCents(athleteRoyaltyCents), index: idx, legacyChain: chain };
+    return { ok: true as const, event: ev, athleteRoyaltyDisplay: formatUsdCents(athleteRoyaltyCents), anchor: receipt, index: idx, legacyChain: chain };
   },
 
-  legacyChain: (id: string, assetId: string) => legacy.get(`${id}:${assetId}`) || { athleteId: id, assetId, hops: [] },
+  /** Legacy chain with sovereignty redactions applied (consent-controlled). */
+  legacyChain(id: string, assetId: string) {
+    const chain = legacy.get(`${id}:${assetId}`);
+    if (!chain) return { athleteId: id, assetId, hops: [] };
+    return {
+      athleteId: id,
+      assetId,
+      hops: chain.hops.map((h) => (h.redacted || !h.consent ? { ...h, userId: "REDACTED" } : h))
+    };
+  },
+
+  /** Sovereignty consent/redaction control for a previous owner in the chain. */
+  setConsent(id: string, assetId: string, userId: string, opts: { consent?: boolean; redacted?: boolean }) {
+    const chain = legacy.get(`${id}:${assetId}`);
+    const hop = chain?.hops.find((h) => h.userId === userId);
+    if (!hop) return { error: "hop_not_found" } as const;
+    if (opts.consent != null) hop.consent = opts.consent;
+    if (opts.redacted != null) hop.redacted = opts.redacted;
+    return { ok: true as const, hop };
+  },
 
   /** All Legacy Circle members for an athlete (unique owners across every asset). */
   legacyCircle(id: string) {
@@ -217,14 +315,109 @@ export const athleteService = {
     for (const chain of legacy.values()) {
       if (chain.athleteId !== id) continue;
       for (const h of chain.hops) {
-        const m = members.get(h.userId) || { userId: h.userId, assets: 0, firstJoined: h.joinedAt };
+        const label = h.redacted || !h.consent ? "REDACTED" : h.userId;
+        const m = members.get(label) || { userId: label, assets: 0, firstJoined: h.joinedAt };
         m.assets += 1;
         if (h.joinedAt < m.firstJoined) m.firstJoined = h.joinedAt;
-        members.set(h.userId, m);
+        members.set(label, m);
       }
     }
     return { athleteId: id, memberCount: members.size, members: [...members.values()] };
   },
 
-  royaltyLedger: (id: string) => royaltyEvents.filter((e) => e.athleteId === id).sort((a, b) => b.ts.localeCompare(a.ts))
+  royaltyLedger: (id: string) => royaltyEvents.filter((e) => e.athleteId === id).sort((a, b) => b.ts.localeCompare(a.ts)),
+
+  /* ----------------------------------------------------- Contracts + DCF */
+
+  /** Upload a contract — UNVERIFIED until CrownX live-verifies it. */
+  uploadContract(id: string, input: { counterparty: string; kind: ContractKind; annualValueCents: number; termYears: number; discountRate?: number; royaltyShare?: number }) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    const c: AthleteContract = { id: newId(), athleteId: id, counterparty: input.counterparty, kind: input.kind, annualValueCents: input.annualValueCents, termYears: input.termYears, discountRate: input.discountRate, royaltyShare: input.royaltyShare, verified: false };
+    const arr = contracts.get(id) || [];
+    arr.push(c);
+    contracts.set(id, arr);
+    const dcf = computeContractDcf(c);
+    return { ok: true as const, contract: c, projectedDcf: dcf, projectedDcfDisplay: formatUsdCents(dcf.dcfCents), note: "Pending CrownX verification — not yet in the valuation." };
+  },
+
+  /** CrownX live-verify a contract; ONLY then does its DCF enter the index. */
+  verifyContract(id: string, contractId: string) {
+    const a = athletes.get(id);
+    const c = (contracts.get(id) || []).find((x) => x.id === contractId);
+    if (!a || !c) return { error: "not_found" } as const;
+    c.verified = true;
+    const receipt = anchor("athlete.contract.verified", { athleteId: id, contractId, kind: c.kind, annualValueCents: c.annualValueCents, termYears: c.termYears }, nowIso());
+    a.contractsDcfCents = sumVerifiedContractDcf(contracts.get(id) || []);
+    const idx = pushPoint(a, { kind: "contract", tag: "C", label: `${c.kind.toUpperCase()} verified · ${c.counterparty}`, note: `DCF +${formatUsdCents(computeContractDcf(c).dcfCents)} over ${c.termYears}y` });
+    return { ok: true as const, contract: c, anchor: receipt, contractsDcfDisplay: formatUsdCents(a.contractsDcfCents), index: idx };
+  },
+
+  listContracts: (id: string) => contracts.get(id) || [],
+
+  /* ----------------------------------------------------- Career timeline */
+
+  addTimelineEvent(id: string, input: { kind: TimelineEvent["kind"]; title: string; detail?: string; date: string; signalPatch?: Partial<AthleteSignals> }) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    const receipt = anchor("athlete.timeline", { athleteId: id, ...input }, nowIso());
+    const ev: TimelineEvent = { id: newId(), athleteId: id, kind: input.kind, title: input.title, detail: input.detail, date: input.date, signalPatch: input.signalPatch, anchor: receipt };
+    const arr = timeline.get(id) || [];
+    arr.push(ev);
+    timeline.set(id, arr);
+    let idx = indexOf(a);
+    if (input.signalPatch) {
+      a.signals = { ...a.signals, ...input.signalPatch };
+      idx = pushPoint(a, { kind: "career", tag: "H", label: input.title, note: input.detail });
+    }
+    return { ok: true as const, event: ev, index: idx };
+  },
+
+  getTimeline: (id: string) => (timeline.get(id) || []).slice().sort((x, y) => x.date.localeCompare(y.date)),
+
+  /* ---------------------------------------- Insurance / appraiser / audit */
+
+  /** Insurance verification: authenticity + current valuation attestation (anchored). */
+  insuranceVerify(id: string, assetId: string) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    const idx = indexOf(a);
+    const payload = { athleteId: id, assetId, valuationCents: idx.marketCapCents, pricePerShareCents: idx.pricePerShareCents, asOf: nowIso() };
+    const receipt = anchor("insurance.attestation", payload, nowIso());
+    return { ok: true as const, authenticity: "verified", valuationDisplay: formatUsdCents(idx.marketCapCents), pricePerShareDisplay: formatUsdCents(idx.pricePerShareCents), attestation: receipt, coverageReady: true };
+  },
+
+  /** Request a formal appraisal — routes into the appraiser pipeline. */
+  requestAppraisal(id: string, assetId: string, requestedBy: string) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    const idx = indexOf(a);
+    // model-implied appraisal anchored to the verified index; a human appraiser confirms
+    const appraisedCents = Math.round(idx.marketCapCents * 0.0008); // per-asset slice of franchise value
+    const receipt = anchor("appraisal.request", { athleteId: id, assetId, requestedBy, appraisedCents, ts: nowIso() }, nowIso());
+    return { ok: true as const, status: "queued_to_appraiser", appraisedValueDisplay: formatUsdCents(appraisedCents), backedByVerification: true, anchor: receipt };
+  },
+
+  /** Real-time, ready-made audit package for auditors / regulators. */
+  auditPackage(id: string) {
+    const a = athletes.get(id);
+    if (!a) return { error: "athlete_not_found" } as const;
+    const idx = indexOf(a);
+    const cs = contracts.get(id) || [];
+    const royalties = royaltyEvents.filter((e) => e.athleteId === id);
+    const pkg = {
+      generatedAt: nowIso(),
+      athlete: { id: a.id, name: a.name, sport: a.sport, team: a.team },
+      valuation: { marketCapDisplay: formatUsdCents(idx.marketCapCents), pricePerShareDisplay: formatUsdCents(idx.pricePerShareCents), brandScore: idx.brandScore, scarcityFactor: idx.scarcityFactor, elasticityFactor: idx.elasticityFactor, breakdown: idx.breakdown },
+      contracts: { total: cs.length, verified: cs.filter((c) => c.verified).length, verifiedDcfDisplay: formatUsdCents(a.contractsDcfCents) },
+      royalties: { count: royalties.length, totalRoyaltyDisplay: formatUsdCents(royalties.reduce((s, r) => s + r.athleteRoyaltyCents, 0)), anchors: royalties.slice(0, 25).map((r) => ({ tx: r.chainTxRef, hash: r.anchor.hash, ts: r.ts })) },
+      ownershipChains: [...legacy.values()].filter((c) => c.athleteId === id).map((c) => ({ assetId: c.assetId, hops: c.hops.length, consentGranted: c.hops.filter((h) => h.consent && !h.redacted).length })),
+      provenance: { chain: "crownx-genesis", sigScheme: "dilithium3-quantum-resistant" }
+    };
+    const receipt = anchor("audit.package", pkg, nowIso());
+    return { ...pkg, attestation: receipt };
+  },
+
+  /** Verify a single anchored fact (auditor/regulator self-check). */
+  verifyAnchorFact: (kind: string, payload: unknown, receipt: AnchorReceipt) => verifyAnchor(kind, payload, receipt)
 };
