@@ -192,6 +192,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "network-feed-service", "dev"],
       "port": 4079
+    },
+    {
+      "name": "royalty-vault-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "royalty-vault-service", "dev"],
+      "port": 4080
     }
   ]
 }

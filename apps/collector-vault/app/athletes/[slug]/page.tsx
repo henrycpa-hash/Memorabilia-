@@ -9,6 +9,7 @@ import { OrderBook } from "../OrderBook";
 
 type Factor = { factor: string; label: string; weight: number; score: number; contributionCents: number };
 type Stakeholder = { rank: number; userId: string; shares: number; valueDisplay: string };
+type RoyaltyVault = { claimed: boolean; pieceCount: number; display: { held: string; claimedLifetime: string; donation: string } };
 type Contract = { id: string; counterparty: string; kind: string; annualValueCents: number; termYears: number; verified: boolean };
 type TimelineEvent = { id: string; kind: string; title: string; detail?: string; date: string };
 type Detail = {
@@ -35,10 +36,11 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
       </Panel>
     );
   }
-  const [ledger, circle, stake] = await Promise.all([
+  const [ledger, circle, stake, vault] = await Promise.all([
     publicGet<Royalty[]>(`/api/athletes/${a.id}/royalty-ledger`),
     publicGet<Circle>(`/api/athletes/${a.id}/legacy`),
-    publicGet<{ holders: Stakeholder[] }>(`/api/athletes/${a.id}/top-stakeholders`)
+    publicGet<{ holders: Stakeholder[] }>(`/api/athletes/${a.id}/top-stakeholders`),
+    publicGet<RoyaltyVault>(`/api/royalty-vault/athlete/${slug}`)
   ]);
   const up = a.change24h >= 0;
   const maxContribution = Math.max(...a.index.breakdown.map((b) => b.contributionCents), 1);
@@ -193,6 +195,48 @@ export default async function AthleteDetail({ params }: { params: Promise<{ slug
                 <div style={{ fontFamily: font.display, fontSize: 20, color: color.goldHi }}>+{fmt(r.athleteRoyaltyCents)}</div>
               </div>
             ))}
+          </div>
+        )}
+      </Panel>
+
+      {/* Royalty Vault — held-until-claim treasury connected to this athlete account */}
+      <Panel style={{ marginTop: 16, borderColor: vault && vault.display.held !== "$0.00" ? color.goldHi : color.line }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <SectionTag>Royalty Vault · held-until-claim</SectionTag>
+          {vault && (
+            <Badge tone={vault.claimed ? "win" : vault.display.held !== "$0.00" ? "gold" : "mut"}>
+              {vault.claimed ? "claimed ✓" : vault.display.held !== "$0.00" ? "royalties waiting" : "no royalties yet"}
+            </Badge>
+          )}
+        </div>
+        <p style={{ color: color.mut, fontSize: 12, margin: "0 0 12px" }}>
+          Every resale settles {a.name}&apos;s 10% royalty on-chain. Their slice is <b style={{ color: color.txt }}>held in the CrownX treasury</b>,
+          earmarked to this athlete account until they verify with biometrics and claim — the held-until-claim flywheel.
+        </p>
+        {vault ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+            <div style={{ padding: "12px 14px", border: `1px solid ${color.line}`, borderRadius: 10, background: "rgba(245,197,24,0.05)" }}>
+              <div style={{ fontSize: 10, color: color.mut2, textTransform: "uppercase", letterSpacing: 0.5 }}>Held for athlete</div>
+              <div style={{ fontFamily: font.display, fontSize: 24, color: color.goldHi }}>{vault.display.held}</div>
+              <div style={{ fontFamily: font.mono, fontSize: 10, color: color.mut2 }}>across {vault.pieceCount} piece{vault.pieceCount === 1 ? "" : "s"}</div>
+            </div>
+            <div style={{ padding: "12px 14px", border: `1px solid ${color.line}`, borderRadius: 10 }}>
+              <div style={{ fontSize: 10, color: color.mut2, textTransform: "uppercase", letterSpacing: 0.5 }}>Claimed lifetime</div>
+              <div style={{ fontFamily: font.display, fontSize: 24, color: color.txt }}>{vault.display.claimedLifetime}</div>
+              <div style={{ fontFamily: font.mono, fontSize: 10, color: color.mut2 }}>released to account</div>
+            </div>
+            <div style={{ padding: "12px 14px", border: `1px solid ${color.line}`, borderRadius: 10 }}>
+              <div style={{ fontSize: 10, color: color.mut2, textTransform: "uppercase", letterSpacing: 0.5 }}>Donated forward</div>
+              <div style={{ fontFamily: font.display, fontSize: 24, color: color.cyan }}>{vault.display.donation}</div>
+              <div style={{ fontFamily: font.mono, fontSize: 10, color: color.mut2 }}>fan-elected gifts</div>
+            </div>
+          </div>
+        ) : (
+          <p style={{ color: color.mut2, fontSize: 12, margin: 0 }}>Vault initializing — held royalties appear here on the first resale.</p>
+        )}
+        {vault && !vault.claimed && vault.display.held !== "$0.00" && (
+          <div style={{ marginTop: 12, textAlign: "center" }}>
+            <ButtonLink href="/athlete" as={Link} variant="primary">Verify & claim {vault.display.held} →</ButtonLink>
           </div>
         )}
       </Panel>

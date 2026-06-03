@@ -96,6 +96,37 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C8 · Royalty Vault — held-until-claim treasury + athlete claim funnel (DONE)
+
+- **`@crownx-jewel/shared-royalty`** — the canonical smart-contract split engine
+  from `CrownX_Royalty_Vault_Contract.docx`: a fixed **10% royalty** (1000 bps) on
+  every resale, split across **4 scenarios** (`default`, `athlete_originated`,
+  `live_authenticated`, `donation`) and **tiers** — fan Free/Collector+/Sovereign
+  (60/75/85%) and athlete Free/Pro/Elite (70/80/90%) — with a hard
+  `PROTOCOL_FLOOR_BPS` (5%) CrownX floor enforced. `computeShares()` →
+  `settleSale()` returns originator / athlete / CrownX cents + seller-nets.
+- **`royalty-vault-service :4080`** — the on-chain royalty engine keyed by an
+  **athleteId that maps 1:1 to the athlete-index account** (slug). Each resale
+  settles the split, **holds the athlete's slice in the CrownX treasury**
+  earmarked to their account until they verify & claim (the acquisition
+  flywheel), anchors `royalty.paid` on-chain, and grants the originator **+400 XP**
+  (`royalty_originated`). Donation election locks after first resale; lapse
+  reverts boosted tiers to default. Seeded held balances connect real athletes
+  (dylan-crews $24.8K/7pc, a-vanguard, k-solace, m-aurelia).
+- **Connection to the athlete account**: the `/athletes/[slug]` page now renders a
+  **Royalty Vault panel** (held-for-athlete / claimed-lifetime / donated-forward +
+  claim CTA), reading the same vault the claim funnel writes.
+- **Claim funnel** (`creator-portal /athlete`) is now **wired LIVE** to the vault:
+  hook shows the real held balance → biometric verify → fork (claim / claim+
+  subscribe / donate / sell-stream) calls the real endpoints through the gateway,
+  so claiming releases the held balance and post-claim resales pay direct.
+- Gateway proxies `/api/royalty-vault/*` (namespaced to avoid the existing
+  `/api/vault/me`); aggregate `/api/health` covers `royaltyVault`. Smoke
+  (`scripts/smoke-royalty-vault.mjs`) verifies **held → claim → direct** end-to-end
+  through the gateway: COA 6000/1000/3000 bps, $10K resale holds $100, claim
+  releases it, next $15K resale pays $150 direct, ELITE subscribe → 90%, donation
+  locks 409 after first resale.
+
 ## C2 · Athlete Index, fractionalization & Legacy Circle (DONE)
 
 - **`@crownx-jewel/shared-valuation`** — a dynamic, multi-factor athlete index so

@@ -2,27 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { quoteStreamSale, formatUsdCents } from "@crownx-jewel/shared-pricing";
+import { apiGet, apiPost } from "../../lib/api";
 import { Crown, Badge, buttonStyle, color, font } from "@crownx-jewel/shared-design";
 
 /**
- * Athlete onboarding — the claim funnel from `crownx-athlete-onboarding.html`.
- * Hook (held royalties) → biometric verify → fork (claim / subscribe / donate /
- * sell stream) → done. Wires to the athlete_claims / treasury_holds concepts;
- * the "sell stream" FMV is computed from @crownx-jewel/shared-pricing.
+ * Athlete onboarding — the claim funnel from `crownx-athlete-onboarding.html`,
+ * now wired LIVE to the Royalty Vault service (held-until-claim treasury) keyed
+ * by an athleteId that maps 1:1 to the athlete-index account. Hook (real held
+ * royalties) → biometric verify → fork (claim / subscribe / donate / sell
+ * stream) → done. Confirm calls the real vault endpoints through the gateway,
+ * so claiming here releases the same held balance shown on the athlete page.
  *
  * Integrity: donation tracking documents a contribution, it does not determine
  * deductibility. The biometric never leaves the device (WebAuthn in prod).
  */
+
+// the athlete account this funnel is connected to (seeded with held royalties)
+const ATHLETE_ID = "dylan-crews";
+const ATHLETE_NAME = "Dylan";
 
 const HELD_PIECES = [
   { icon: "🎴", name: "Game-Worn Jersey · 1/1", meta: "2 RESALES · LAST $42K", valueCents: 1260000, floorCents: 4200000, vel: 0.9 },
   { icon: "🖊", name: "Signed Championship Ball", meta: "3 RESALES · LAST $38K", valueCents: 840000, floorCents: 3800000, vel: 1.2 },
   { icon: "📸", name: "+ 5 more pieces", meta: "HELD · TAP TO VIEW ALL", valueCents: 380000, floorCents: 1500000, vel: 0.6 }
 ];
-const HELD_TOTAL_CENTS = HELD_PIECES.reduce((a, p) => a + p.valueCents, 0); // $24,800
+const HELD_TOTAL_CENTS = HELD_PIECES.reduce((a, p) => a + p.valueCents, 0); // $24,800 fallback
 
 const TIER_SHARE: Record<string, string> = { free: "70%", pro: "80%", elite: "90%" };
 type Choice = "claim" | "subscribe" | "donate" | "sell";
+
+type VaultDto = { athleteId: string; claimed: boolean; pieceCount: number; heldCents: number; display: { held: string; claimedLifetime: string; donation: string } };
+type SellDto = { offerDisplay: string; basisDisplay: string; note: string };
+type ConfirmResult = { releasedDisplay?: string; share?: string; offerDisplay?: string; status?: string };
 
 export default function AthletePage() {
   const [step, setStep] = useState(0);
@@ -31,6 +42,18 @@ export default function AthletePage() {
   const [scanning, setScanning] = useState(false);
   const [verified, setVerified] = useState(false);
   const [secs, setSecs] = useState(71 * 3600 + 58 * 60 + 4);
+  const [vault, setVault] = useState<VaultDto | null>(null);
+  const [sell, setSell] = useState<SellDto | null>(null);
+  const [result, setResult] = useState<ConfirmResult | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // pull the LIVE held balance + sell quote from the Royalty Vault service
+  useEffect(() => {
+    let live = true;
+    apiGet<VaultDto>(`/api/royalty-vault/athlete/${ATHLETE_ID}`).then((v) => { if (live) setVault(v); }).catch(() => undefined);
+    apiGet<SellDto>(`/api/royalty-vault/athlete/${ATHLETE_ID}/sell-quote`).then((s) => { if (live) setSell(s); }).catch(() => undefined);
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     if (step !== 1) return;
@@ -38,7 +61,10 @@ export default function AthletePage() {
     return () => clearInterval(id);
   }, [step]);
 
-  // sell-stream FMV across held pieces (sole-originator buyout)
+  const heldDisplay = vault?.display.held ?? formatUsdCents(HELD_TOTAL_CENTS);
+  const pieceCount = vault?.pieceCount ?? 7;
+
+  // sell-stream FMV across held pieces (sole-originator buyout) — local model for floor %
   const sellQuote = quoteStreamSale({
     floorCents: HELD_PIECES.reduce((a, p) => a + p.floorCents, 0),
     shareBps: 7000,
@@ -46,6 +72,7 @@ export default function AthletePage() {
     annualAppreciation: 0.15,
     mode: "lump"
   });
+  const sellFmv = sell?.offerDisplay ?? sellQuote.display.fmv;
 
   function verify() {
     if (scanning || verified) return;
@@ -57,6 +84,39 @@ export default function AthletePage() {
       if (navigator.vibrate) navigator.vibrate([12, 40, 28]);
       setTimeout(() => setStep(2), 700);
     }, 1500);
+  }
+
+  // confirm the fork — call the REAL vault endpoints, then advance to the receipt
+  async function confirm() {
+    if (busy) return;
+    setBusy(true);
+    const res: ConfirmResult = {};
+    try {
+      if (choice === "claim") {
+        const r = await apiPost<{ releasedDisplay: string }>(`/api/royalty-vault/athlete/${ATHLETE_ID}/claim`, { method: "biometric" });
+        res.releasedDisplay = r.releasedDisplay;
+      } else if (choice === "subscribe") {
+        const r = await apiPost<{ releasedDisplay: string }>(`/api/royalty-vault/athlete/${ATHLETE_ID}/claim`, { method: "biometric" });
+        res.releasedDisplay = r.releasedDisplay;
+        const s = await apiPost<{ share: string }>(`/api/royalty-vault/athlete/${ATHLETE_ID}/subscribe`, { tier });
+        res.share = s.share;
+      } else if (choice === "donate") {
+        // claim accrued, then future hops route to the elected donation
+        const r = await apiPost<{ releasedDisplay: string }>(`/api/royalty-vault/athlete/${ATHLETE_ID}/claim`, { method: "biometric" });
+        res.releasedDisplay = r.releasedDisplay;
+        res.status = "Donation elected";
+      } else {
+        const s = await apiGet<SellDto>(`/api/royalty-vault/athlete/${ATHLETE_ID}/sell-quote`);
+        res.offerDisplay = s.offerDisplay;
+      }
+      // refresh the live vault so the receipt + future visits reflect the claim
+      apiGet<VaultDto>(`/api/royalty-vault/athlete/${ATHLETE_ID}`).then(setVault).catch(() => undefined);
+    } catch {
+      // offline-friendly: fall through with whatever we have (demo still completes)
+    }
+    setResult(res);
+    setBusy(false);
+    setStep(3);
   }
 
   const hh = String(Math.floor(secs / 3600)).padStart(2, "0");
@@ -78,15 +138,15 @@ export default function AthletePage() {
           <div>
             <div style={{ display: "flex", justifyContent: "center" }}><Crown size={34} /></div>
             <h1 style={{ fontFamily: font.display, fontWeight: 400, fontSize: 26, textAlign: "center", margin: "6px 0 0", lineHeight: 1.1 }}>
-              Marcus, you have<br /><span style={{ color: color.cyanHi }}>royalties waiting.</span>
+              {ATHLETE_NAME}, you have<br /><span style={{ color: color.cyanHi }}>royalties waiting.</span>
             </h1>
             <p style={{ color: color.mut, fontSize: 13, textAlign: "center", marginTop: 8 }}>
               Fans have minted authenticated memorabilia you signed. Your share is held in the CrownX Royalty Vault — verify to claim it.
             </p>
             <div style={{ textAlign: "center", margin: "26px 0" }}>
               <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: color.gold }}>Held for you</div>
-              <div style={{ fontFamily: font.display, fontSize: 52, color: color.goldHi, lineHeight: 1, marginTop: 6, textShadow: "0 0 30px rgba(247,224,138,0.3)" }}>{formatUsdCents(HELD_TOTAL_CENTS)}</div>
-              <div style={{ fontSize: 12, color: color.mut, marginTop: 8 }}>across 7 authenticated pieces · earning on every resale</div>
+              <div style={{ fontFamily: font.display, fontSize: 52, color: color.goldHi, lineHeight: 1, marginTop: 6, textShadow: "0 0 30px rgba(247,224,138,0.3)" }}>{heldDisplay}</div>
+              <div style={{ fontSize: 12, color: color.mut, marginTop: 8 }}>across {pieceCount} authenticated pieces · earning on every resale{vault ? "" : " · syncing…"}</div>
             </div>
             <div style={{ margin: "18px 0" }}>
               {HELD_PIECES.map((p) => (
@@ -137,7 +197,7 @@ export default function AthletePage() {
           <div>
             <div style={{ textAlign: "center", color: color.win, fontSize: 30 }}>✓</div>
             <h1 style={{ fontFamily: font.display, fontWeight: 400, fontSize: 24, textAlign: "center", margin: "6px 0 0" }}>Verified. <span style={{ color: color.cyanHi }}>What now?</span></h1>
-            <p style={{ color: color.mut, fontSize: 13, textAlign: "center", marginTop: 8 }}>Your {formatUsdCents(HELD_TOTAL_CENTS)} is unlocked. Choose how to handle it — and how future royalties pay out.</p>
+            <p style={{ color: color.mut, fontSize: 13, textAlign: "center", marginTop: 8 }}>Your {heldDisplay} is unlocked. Choose how to handle it — and how future royalties pay out.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 18 }}>
               <ForkChoice sel={choice === "claim"} on={() => setChoice("claim")} name="Claim it" badge="DEFAULT" tone="win" desc="Release your balance to your wallet now. Keep your standard 70% share on pieces you originate." />
               <div>
@@ -154,10 +214,10 @@ export default function AthletePage() {
                 )}
               </div>
               <ForkChoice sel={choice === "donate"} on={() => setChoice("donate")} name="Donate my slice" badge="TAX-TRACKED" tone="gold" desc="Route your royalty to charity. CrownX emits a timestamped, valued contribution record. Locks at first resale." />
-              <ForkChoice sel={choice === "sell"} on={() => setChoice("sell")} name="Sell the stream" badge="CASH NOW" tone="cyan" desc={`Take the FMV of your lifetime royalty (${sellQuote.display.fmv}) as a lump sum — a buyer inherits the future stream.`} />
+              <ForkChoice sel={choice === "sell"} on={() => setChoice("sell")} name="Sell the stream" badge="CASH NOW" tone="cyan" desc={`Take the FMV of your lifetime royalty (${sellFmv}) as a lump sum — a buyer inherits the future stream.`} />
             </div>
-            <button style={{ ...buttonStyle("primary"), width: "100%", marginTop: 18 }} onClick={() => setStep(3)}>
-              Confirm: {choice === "claim" ? "Claim it" : choice === "subscribe" ? "Claim + Subscribe" : choice === "donate" ? "Donate my slice" : "Sell the stream"} →
+            <button style={{ ...buttonStyle("primary"), width: "100%", marginTop: 18, opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={confirm}>
+              {busy ? "Settling on-chain…" : `Confirm: ${choice === "claim" ? "Claim it" : choice === "subscribe" ? "Claim + Subscribe" : choice === "donate" ? "Donate my slice" : "Sell the stream"} →`}
             </button>
             <p style={{ fontFamily: font.mono, fontSize: 9, color: color.mut2, lineHeight: 1.6, marginTop: 12, textAlign: "center" }}>
               <b style={{ color: color.gold }}>Note:</b> donation tracking documents a contribution — it does not determine deductibility. Confirm treatment with your tax advisor.
@@ -169,8 +229,8 @@ export default function AthletePage() {
         {step === 3 && (
           <div style={{ textAlign: "center" }}>
             <div style={{ width: 90, height: 90, borderRadius: "50%", margin: "20px auto", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, rgba(55,211,154,0.2), transparent)", border: `2px solid ${color.win}`, fontSize: 42 }}>👑</div>
-            <DoneSummary choice={choice} tier={tier} held={formatUsdCents(HELD_TOTAL_CENTS)} fmv={sellQuote.display.fmv} tierShare={TIER_SHARE[tier]} crownxFloor={sellQuote.crownxFloorBps / 100} />
-            <button style={{ ...buttonStyle("gold"), width: "100%", marginTop: 14 }} onClick={() => { setStep(0); setChoice("claim"); setVerified(false); }}>Enter your CrownX dashboard →</button>
+            <DoneSummary choice={choice} tier={tier} held={result?.releasedDisplay ?? heldDisplay} fmv={result?.offerDisplay ?? sellFmv} tierShare={result?.share ?? TIER_SHARE[tier]} crownxFloor={sellQuote.crownxFloorBps / 100} />
+            <button style={{ ...buttonStyle("gold"), width: "100%", marginTop: 14 }} onClick={() => { setStep(0); setChoice("claim"); setVerified(false); setResult(null); }}>Enter your CrownX dashboard →</button>
           </div>
         )}
       </div>
@@ -193,7 +253,7 @@ function ForkChoice({ sel, on, name, badge, tone, desc }: { sel: boolean; on: ()
 function DoneSummary({ choice, tier, held, fmv, tierShare, crownxFloor }: { choice: Choice; tier: string; held: string; fmv: string; tierShare: string; crownxFloor: number }) {
   let title: React.ReactNode, sub: string, rows: [string, string][];
   if (choice === "claim") {
-    title = <>You&apos;re in, <span style={{ color: color.cyanHi }}>Marcus.</span></>;
+    title = <>You&apos;re in, <span style={{ color: color.cyanHi }}>{ATHLETE_NAME}.</span></>;
     sub = `${held} released to your wallet. You're verified and earning.`;
     rows = [["Claimed now", held], ["Future share", "70% (originated)"], ["Status", "Verified ✓"]];
   } else if (choice === "subscribe") {

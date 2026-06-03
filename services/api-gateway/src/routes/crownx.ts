@@ -42,7 +42,8 @@ export function registerCrownxRoutes(app: FastifyInstance) {
       athleteIndex: process.env.ATHLETE_INDEX_SERVICE_URL || "http://localhost:4076",
       packNShip: process.env.PACK_N_SHIP_SERVICE_URL || "http://localhost:4077",
       authEngine: process.env.AUTH_ENGINE_SERVICE_URL || "http://localhost:4078",
-      networkFeed: process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079"
+      networkFeed: process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079",
+      royaltyVault: process.env.ROYALTY_VAULT_SERVICE_URL || "http://localhost:4080"
     };
     const checks = await Promise.all(
       Object.entries(targets).map(async ([name, base]) => {
@@ -290,4 +291,17 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   for (const a of ["comment", "boost", "react", "bid", "buy", "settle-auction"]) {
     app.post(`/api/feed/:id/${a}`, async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${feedBase()}/feed/${id}/${a}`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   }
+
+  // ---- Royalty Vault: 10% split engine + athlete claim flywheel (proxy) ----
+  const rvBase = () => process.env.ROYALTY_VAULT_SERVICE_URL || "http://localhost:4080";
+  app.get("/api/royalty-vault/scenarios", async (_req, reply) => { const r = await proxy("GET", `${rvBase()}/royalty-vault/scenarios`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/royalty-vault/athlete/:athleteId", async (request, reply) => { const { athleteId } = request.params as { athleteId: string }; const r = await proxy("GET", `${rvBase()}/royalty-vault/athlete/${athleteId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/royalty-vault/athlete/:athleteId/sell-quote", async (request, reply) => { const { athleteId } = request.params as { athleteId: string }; const r = await proxy("GET", `${rvBase()}/royalty-vault/athlete/${athleteId}/sell-quote`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/royalty-vault/coa", async (request, reply) => { const r = await proxy("POST", `${rvBase()}/royalty-vault/coa`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/royalty-vault/settle", async (request, reply) => { const r = await proxy("POST", `${rvBase()}/royalty-vault/settle`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/royalty-vault/athlete/:athleteId/claim", async (request, reply) => { const { athleteId } = request.params as { athleteId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/athlete/${athleteId}/claim`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/royalty-vault/athlete/:athleteId/subscribe", async (request, reply) => { const { athleteId } = request.params as { athleteId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/athlete/${athleteId}/subscribe`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/royalty-vault/athlete/:athleteId/donation", async (request, reply) => { const { athleteId } = request.params as { athleteId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/athlete/${athleteId}/donation`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/royalty-vault/fan/:originatorId/subscribe", async (request, reply) => { const { originatorId } = request.params as { originatorId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/fan/${originatorId}/subscribe`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/royalty-vault/holder/:holderId/lapse", async (request, reply) => { const { holderId } = request.params as { holderId: string }; const r = await proxy("POST", `${rvBase()}/royalty-vault/holder/${holderId}/lapse`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
 }

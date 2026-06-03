@@ -31,6 +31,7 @@ services:
       PACK_N_SHIP_SERVICE_URL: http://pack-n-ship-service:4077
       AUTH_ENGINE_SERVICE_URL: http://authentication-engine-service:4078
       NETWORK_FEED_SERVICE_URL: http://network-feed-service:4079
+      ROYALTY_VAULT_SERVICE_URL: http://royalty-vault-service:4080
     ports: ["4000:4000"]
     depends_on:
       - identity-service
@@ -132,6 +133,12 @@ services:
     environment: { XP_SERVICE_URL: http://xp-service:4073, ATHLETE_INDEX_SERVICE_URL: http://athlete-index-service:4076, PACK_N_SHIP_SERVICE_URL: http://pack-n-ship-service:4077, ATTRIBUTION_SERVICE_URL: http://attribution-service:4074 }
     ports: ["4079:4079"]
     depends_on: [xp-service, athlete-index-service, pack-n-ship-service]
+  royalty-vault-service:
+    build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/royalty-vault-service } }
+    env_file: [../../.env.example]
+    environment: { XP_SERVICE_URL: http://xp-service:4073 }
+    ports: ["4080:4080"]
+    depends_on: [xp-service]
 
   identity-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/identity-service } }
