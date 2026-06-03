@@ -96,6 +96,26 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C14 · Board governance (3%→5%) + data-dividend wealth loop + viral leaderboard (DONE)
+
+- **Board allocation set to 3%**, scaling to a **5% smart-contract ceiling** as
+  CrownX grows and the board approves. `shared-datadividend`:
+  `DEFAULT_BOARD_ALLOC_BPS 300`, `MAX_BOARD_ALLOC_BPS 500`; `allocatePool` clamps
+  any request to the 5% ceiling. New `POST /api/ai-modeling/governance/board-alloc`
+  (board raises it, anchored, capped); `poolStatus` surfaces the governance policy.
+  Verified: epoch pool is now 3% of profit; an 8% request caps at 5%.
+- **Daily wealth-building loop**: AI-modeling **data dividends are now part of net
+  worth**. `collector-vault /wealth` adds them to the hero total, a "data
+  dividends" badge + "AI-modeling dividends" stat, and a daily-loop CTA ("Earn
+  from your data" / "Your data dividends") — a new income stream in the compound.
+- **Viral mechanics**: a **top-data-contributor leaderboard**
+  (`GET /api/ai-modeling/leaderboard`, surfaced on `/data` with the "you" row
+  highlighted), and when a model improvement **ships to the live product** the
+  ai-modeling-service **broadcasts a promo to the network feed** ("AI
+  authentication upgraded · auth-vX is live · N contributors now earn") — your
+  data, paying you, in public. Verified: feed broadcast fires on deploy.
+- Full regression suite green (11/11 services up); typecheck clean.
+
 ## C13 · AI-Modeling Data Dividend + Genesis COA across ALL pipelines (DONE)
 
 Sovereignty data consent + tokenized AI-modeling compensation, and the full

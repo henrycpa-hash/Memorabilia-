@@ -22,24 +22,27 @@ type UserDash = {
   shareOfPoolPct: string;
   lifetimePaidDisplay: string;
 };
-type Pool = { revenueTotalDisplay: string; unallocatedRevenueDisplay: string; tokensTotal: number; tokensInUtilization: number; modelUpdates: number; deployedUpdates: number; epochs: number; boardAllocBps: number; lastEpoch: { poolDisplay: string; status: string } | null };
+type Pool = { revenueTotalDisplay: string; unallocatedRevenueDisplay: string; tokensTotal: number; tokensInUtilization: number; modelUpdates: number; deployedUpdates: number; epochs: number; boardAllocBps: number; boardAllocPct: number; boardAllocCeilingPct: number; governance: string; lastEpoch: { poolDisplay: string; status: string } | null };
 type ModelUpdate = { id: string; version: string; note: string; tokenCount: number; deployed: boolean };
+type LeaderRow = { rank: number; holderId: string; tokens: number; live: number; lifetimePaidDisplay: string; shareOfPoolPct: string };
 
 export default function DataDividendPage() {
   const [dash, setDash] = useState<UserDash | null>(null);
   const [pool, setPool] = useState<Pool | null>(null);
   const [updates, setUpdates] = useState<ModelUpdate[]>([]);
+  const [board, setBoard] = useState<LeaderRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
   const refresh = useCallback(async () => {
     try {
-      const [d, p, u] = await Promise.all([
+      const [d, p, u, lb] = await Promise.all([
         fetch(`${GATEWAY}/api/ai-modeling/user/${ME}`).then((r) => r.json()),
         fetch(`${GATEWAY}/api/ai-modeling/pool`).then((r) => r.json()),
-        fetch(`${GATEWAY}/api/ai-modeling/model-updates`).then((r) => r.json())
+        fetch(`${GATEWAY}/api/ai-modeling/model-updates`).then((r) => r.json()),
+        fetch(`${GATEWAY}/api/ai-modeling/leaderboard`).then((r) => r.json())
       ]);
-      setDash(d); setPool(p); setUpdates(u.updates || []);
+      setDash(d); setPool(p); setUpdates(u.updates || []); setBoard(lb.leaderboard || []);
     } catch { /* offline */ }
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
@@ -98,7 +101,7 @@ export default function DataDividendPage() {
           <div style={{ fontFamily: font.mono, fontSize: 11.5, color: color.txt, lineHeight: 1.8, marginTop: 6 }}>
             Revenue tied: <b style={{ color: color.cyanHi }}>{pool?.revenueTotalDisplay || "$0"}</b><br />
             Last pool: <b style={{ color: color.goldHi }}>{pool?.lastEpoch?.poolDisplay || "—"}</b> ({pool?.lastEpoch?.status || "none"})<br />
-            Board alloc: {(pool ? pool.boardAllocBps / 100 : 0)}% of profit · before dividends<br />
+            Board alloc: <b style={{ color: color.goldHi }}>{pool?.boardAllocPct ?? 3}%</b> of profit → scales to {pool?.boardAllocCeilingPct ?? 5}% · before dividends<br />
             Live tokens: {pool?.tokensInUtilization ?? 0}/{pool?.tokensTotal ?? 0}
           </div>
           <button onClick={runEpoch} disabled={busy} style={{ ...buttonStyle("secondary"), width: "100%", marginTop: 10, fontSize: 12 }}>Run compensation epoch →</button>
@@ -147,6 +150,25 @@ export default function DataDividendPage() {
         ) : (
           <p style={{ color: color.mut2, fontSize: 12, margin: "8px 0 0" }}>No model updates yet.</p>
         )}
+      </Panel>
+
+      {/* viral: top data contributors */}
+      <Panel style={{ marginTop: 16 }}>
+        <SectionTag>Top data contributors · the AI-modeling leaderboard</SectionTag>
+        {board.length > 0 ? (
+          <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+            {board.map((h) => (
+              <div key={h.holderId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", border: `1px solid ${h.holderId === ME ? color.cyan : color.line}`, borderRadius: 10, background: h.holderId === ME ? "rgba(63,217,212,0.06)" : "transparent" }}>
+                <span style={{ fontFamily: font.display, fontSize: 18, color: h.rank <= 3 ? color.goldHi : color.mut, width: 28 }}>#{h.rank}</span>
+                <span style={{ flex: 1, fontSize: 13, color: color.txt }}>{h.holderId}{h.holderId === ME ? " (you)" : ""} <span style={{ fontFamily: font.mono, fontSize: 9, color: color.mut2 }}>· {h.live}/{h.tokens} live · {h.shareOfPoolPct}% of pool</span></span>
+                <span style={{ fontFamily: font.display, fontSize: 18, color: color.goldHi }}>{h.lifetimePaidDisplay}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: color.mut2, fontSize: 12, margin: "8px 0 0" }}>No contributors yet.</p>
+        )}
+        <p style={{ fontFamily: font.mono, fontSize: 9, color: color.mut2, marginTop: 10 }}>When a model improvement ships to the live product, its contributors are announced on the network feed — your data, paying you, in public.</p>
       </Panel>
 
       <p style={{ fontFamily: font.mono, fontSize: 9.5, color: color.mut2, lineHeight: 1.7, marginTop: 16, maxWidth: 760 }}>

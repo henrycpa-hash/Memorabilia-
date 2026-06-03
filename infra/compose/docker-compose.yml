@@ -149,6 +149,7 @@ services:
   ai-modeling-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/ai-modeling-service } }
     env_file: [../../.env.example]
+    environment: { NETWORK_FEED_SERVICE_URL: http://network-feed-service:4079 }
     ports: ["4082:4082"]
 
   identity-service:

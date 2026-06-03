@@ -63,7 +63,19 @@ export function registerAiModelingRoutes(app: FastifyInstance) {
   });
   app.get("/ai-modeling/epochs", async () => ({ epochs: aiModeling.epochs() }));
 
+  // ---- board governance: scale the allocation toward the 5% ceiling ----
+  app.post("/ai-modeling/governance/board-alloc", async (request, reply) => {
+    const b = (request.body || {}) as { bps?: number; pct?: number };
+    const bps = typeof b.bps === "number" ? b.bps : typeof b.pct === "number" ? Math.round(b.pct * 100) : null;
+    if (bps === null || !Number.isFinite(bps) || bps < 0) return reply.code(400).send({ error: "bps_or_pct_required" });
+    return aiModeling.setBoardAlloc(bps);
+  });
+
   // ---- views ----
+  app.get("/ai-modeling/leaderboard", async (request) => {
+    const { limit } = request.query as { limit?: string };
+    return { leaderboard: aiModeling.leaderboard(limit ? Number(limit) : 10) };
+  });
   app.get("/ai-modeling/pool", async () => aiModeling.poolStatus());
   app.get("/ai-modeling/user/:userId", async (request) => {
     const { userId } = request.params as { userId: string };

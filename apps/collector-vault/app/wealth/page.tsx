@@ -20,23 +20,27 @@ function session(): { sub: string; token: string } | null {
 type Position = { athleteId: string; slug?: string; name: string; sport?: string; shares: number; valueDisplay: string; unrealizedCents: number; unrealizedDisplay: string };
 type Portfolio = { positions: Position[]; netWorthCents: number; royaltyDividendsCents: number; display: { netWorth: string; holdingsValue: string; unrealized: string; royaltyDividends: string; projectedAnnualRoyalty: string } };
 type Rank = { level: number; tier: string; pct: number; xp: number };
+type DataDiv = { lifetimePaidCents: number; lifetimePaidDisplay: string; counts: { total: number; inUtilization: number }; shareOfPoolPct: string; consent: { aiModeling: boolean } };
 
 export default function WealthPage() {
   const [sess, setSess] = useState<{ sub: string; token: string } | null>(null);
   const [pf, setPf] = useState<Portfolio | null>(null);
   const [rank, setRank] = useState<Rank | null>(null);
   const [slabs, setSlabs] = useState<number | null>(null);
+  const [dataDiv, setDataDiv] = useState<DataDiv | null>(null);
   const [checkMsg, setCheckMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (s: { sub: string; token: string }) => {
     try {
-      const [pfR, rR] = await Promise.all([
+      const [pfR, rR, ddR] = await Promise.all([
         fetch(`${GATEWAY}/api/portfolio/${s.sub}`).then((r) => r.json()),
-        fetch(`${GATEWAY}/api/xp/rank/${s.sub}`).then((r) => r.json())
+        fetch(`${GATEWAY}/api/xp/rank/${s.sub}`).then((r) => r.json()),
+        fetch(`${GATEWAY}/api/ai-modeling/user/${s.sub}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
       ]);
       setPf(pfR);
       setRank(rR);
+      setDataDiv(ddR);
       const v = await fetch(`${GATEWAY}/api/vault/me`, { headers: { authorization: `Bearer ${s.token}` } }).then((r) => (r.ok ? r.json() : []));
       setSlabs(Array.isArray(v) ? v.length : 0);
     } catch {
@@ -74,18 +78,22 @@ export default function WealthPage() {
   }
 
   const up = (pf?.positions || []).reduce((s, p) => s + p.unrealizedCents, 0) >= 0;
+  const dataCents = dataDiv?.lifetimePaidCents || 0;
+  const totalCents = (pf?.netWorthCents || 0) + dataCents;
+  const fmt = (c: number) => (c >= 100_000_000 ? `$${(c / 100_000_000).toFixed(2)}M` : c >= 100_000 ? `$${(c / 100_000).toFixed(1)}K` : `$${(c / 100).toFixed(2)}`);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      {/* net worth hero — billion-dollar feel */}
+      {/* net worth hero — billion-dollar feel (holdings + royalties + data dividends) */}
       <section style={{ textAlign: "center", padding: "26px 0 12px", position: "relative" }}>
         <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: color.gold }}>Your CrownX net worth</div>
         <div style={{ fontFamily: font.display, fontWeight: 400, fontSize: "clamp(56px,12vw,120px)", lineHeight: 0.9, margin: "8px 0 0", background: "linear-gradient(180deg, #fff, #f7e08a 45%, #8a6310 100%)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", filter: "drop-shadow(0 6px 40px rgba(217,168,46,0.25))" }}>
-          {pf?.display.netWorth || "$0.00"}
+          {totalCents ? fmt(totalCents) : pf?.display.netWorth || "$0.00"}
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 14, flexWrap: "wrap" }}>
           <Badge tone={up ? "win" : "hot"}>{up ? "▲" : "▼"} {pf?.display.unrealized} unrealized</Badge>
           <Badge tone="gold">{pf?.display.royaltyDividends} royalties earned</Badge>
+          {dataCents > 0 && <Badge tone="cyan">{dataDiv?.lifetimePaidDisplay} data dividends</Badge>}
           <Badge tone="cyan">{slabs ?? 0} slabs owned</Badge>
         </div>
       </section>
@@ -100,7 +108,8 @@ export default function WealthPage() {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button onClick={checkIn} disabled={busy} style={buttonStyle("gold")}>🔥 Daily check-in</button>
               <ButtonLink href="/athletes" as={Link} variant="primary">📈 Trade the Exchange</ButtonLink>
-              <ButtonLink href="/status" as={Link} variant="secondary">👑 Climb /LV99</ButtonLink>
+              <ButtonLink href="/mint" as={Link} variant="secondary">🎴 Authenticate &amp; mint</ButtonLink>
+              <ButtonLink href="/data" as={Link} variant="secondary">{dataDiv?.consent.aiModeling ? "🤖 Your data dividends" : "🤖 Earn from your data"}</ButtonLink>
             </div>
             {checkMsg && <div style={{ fontFamily: font.mono, fontSize: 11, color: color.win, marginTop: 10 }}>{checkMsg}</div>}
           </div>
@@ -111,8 +120,8 @@ export default function WealthPage() {
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginTop: 16 }}>
         <WealthStat label="Holdings value" value={pf?.display.holdingsValue || "$0"} tone={color.cyanHi} />
         <WealthStat label="Royalty income" value={pf?.display.royaltyDividends || "$0"} tone={color.goldHi} />
+        <WealthStat label="AI-modeling dividends" value={dataDiv?.lifetimePaidDisplay || "$0"} tone={color.cyanHi} />
         <WealthStat label="Projected annual royalties" value={pf?.display.projectedAnnualRoyalty || "$0"} tone={color.goldHi} />
-        <WealthStat label="Unrealized P&L" value={pf?.display.unrealized || "$0"} tone={up ? color.win : color.hot} />
       </div>
 
       {/* athlete portfolio */}

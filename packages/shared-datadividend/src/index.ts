@@ -26,8 +26,13 @@ export type Modality = (typeof MODALITY_MATRIX)[number];
 
 /** Weight is reported in basis points of a "data value unit" (10000 = 1.0). */
 export const WEIGHT_SCALE_BPS = 10000;
-/** Board-set default share of AI-modeling profit pool (overridable per epoch). */
-export const DEFAULT_BOARD_ALLOC_BPS = 1500; // 15% of attributable profit
+/**
+ * Board-set share of AI-modeling profit pool. Starts at 3% and scales UP TO 5%
+ * as the company grows and the board approves — the smart contract caps it at
+ * MAX so contributor compensation can rise but never exceed the governed ceiling.
+ */
+export const DEFAULT_BOARD_ALLOC_BPS = 300;  // 3% of attributable profit (launch)
+export const MAX_BOARD_ALLOC_BPS = 500;      // 5% ceiling — board-approved growth cap
 /** Tokens must clear this confidence to be eligible (only authentic data trains). */
 export const MIN_ELIGIBLE_CONFIDENCE = 70;
 
@@ -130,11 +135,13 @@ export function tokenBindingHash(tokenId: string, modelUpdateId: string, weightB
  * sets the share (bps). This is computed/honored BEFORE shareholder dividends —
  * the smart contract pays modeling contributors first.
  */
-export function allocatePool(attributableProfitCents: number, boardAllocBps = DEFAULT_BOARD_ALLOC_BPS): { poolCents: number; boardAllocBps: number; residualForDividendsCents: number } {
+export function allocatePool(attributableProfitCents: number, boardAllocBps = DEFAULT_BOARD_ALLOC_BPS): { poolCents: number; boardAllocBps: number; cappedAtMax: boolean; residualForDividendsCents: number } {
   const profit = Math.max(0, Math.floor(attributableProfitCents || 0));
-  const bps = Math.max(0, Math.min(WEIGHT_SCALE_BPS, Math.floor(boardAllocBps)));
+  const requested = Math.max(0, Math.floor(boardAllocBps));
+  // the smart contract enforces the governed ceiling (5%) regardless of request
+  const bps = Math.min(MAX_BOARD_ALLOC_BPS, requested);
   const poolCents = Math.floor((profit * bps) / WEIGHT_SCALE_BPS);
-  return { poolCents, boardAllocBps: bps, residualForDividendsCents: profit - poolCents };
+  return { poolCents, boardAllocBps: bps, cappedAtMax: requested > MAX_BOARD_ALLOC_BPS, residualForDividendsCents: profit - poolCents };
 }
 
 export interface Payout { tokenId: string; holderId: string; weightBps: number; shareBps: number; payoutCents: number }

@@ -8,6 +8,7 @@ import {
   rollupByHolder,
   formatUsdCents,
   DEFAULT_BOARD_ALLOC_BPS,
+  MAX_BOARD_ALLOC_BPS,
   type DataContributionToken,
   type Modality
 } from "@crownx-jewel/shared-datadividend";
@@ -34,6 +35,16 @@ interface Epoch { id: string; poolCents: number; boardAllocBps: number; attribut
 interface HolderBalance { userId: string; lifetimePaidCents: number; payouts: number }
 
 const PROFIT_MARGIN_BPS = 4200; // board assumption: ~42% of AI-attributable revenue is profit
+// the board allocation starts at 3% and scales up to the 5% ceiling on approval
+let boardAllocBps = DEFAULT_BOARD_ALLOC_BPS;
+
+const FEED_URL = () => process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079";
+/** Fire-and-forget viral broadcast (timeout-guarded). */
+function broadcast(title: string, body: string): void {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 3500);
+  fetch(`${FEED_URL()}/feed/promo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ authorId: "crownx_ai", authorName: "CrownX AI Lab", title, body }), signal: ctrl.signal }).catch(() => undefined).finally(() => clearTimeout(t));
+}
 
 const consents = new Map<string, Consent>();
 const tokens: DataContributionToken[] = [];
@@ -106,9 +117,13 @@ function activateUpdate(updateId: string) {
   const upd = modelUpdates.find((u) => u.id === updateId);
   if (!upd) return { error: "update_not_found" as const };
   upd.deployed = true; upd.deployedAt = nowIso();
-  for (const t of tokens) if (t.modelUpdateId === updateId) t.inUtilization = true;
+  let activated = 0;
+  const contributors = new Set<string>();
+  for (const t of tokens) if (t.modelUpdateId === updateId) { t.inUtilization = true; activated++; contributors.add(t.holderId); }
   const receipt = anchor("model.deployed", { updateId, version: upd.version, at: upd.deployedAt }, upd.deployedAt);
-  return { ok: true as const, update: upd, anchor: receipt };
+  // viral: announce the shipped model improvement → its contributors now earn
+  broadcast(`AI authentication upgraded · ${upd.version} is live`, `${upd.note || "New model improvement shipped to the live product."} ${contributors.size} data contributors (${activated} tokens) now earn a pro-rata share of the AI-modeling pool.`);
+  return { ok: true as const, update: upd, activatedTokens: activated, contributors: contributors.size, anchor: receipt };
 }
 
 function recordRevenue(input: { source: string; cents: number }) {
@@ -155,11 +170,20 @@ export const aiModeling = {
   revenueTotal: () => revenue.reduce((a, e) => a + e.cents, 0),
 
   /* ---- compensation epochs: allocate from profit BEFORE dividends, distribute pro-rata ---- */
+  /** Board governance: raise the allocation toward the 5% ceiling as CrownX grows. */
+  setBoardAlloc(bps: number) {
+    const requested = Math.max(0, Math.floor(bps));
+    const capped = Math.min(MAX_BOARD_ALLOC_BPS, requested);
+    boardAllocBps = capped;
+    const receipt = anchor("modeling.governance.board_alloc", { boardAllocBps: capped, requested, ceilingBps: MAX_BOARD_ALLOC_BPS }, nowIso());
+    return { ok: true as const, boardAllocBps: capped, boardAllocPct: capped / 100, ceilingPct: MAX_BOARD_ALLOC_BPS / 100, cappedAtMax: requested > MAX_BOARD_ALLOC_BPS, anchor: receipt };
+  },
+
   openEpoch(input: { attributableProfitCents?: number; boardAllocBps?: number }) {
     const totalRev = revenue.reduce((a, e) => a + e.cents, 0);
     const newRevenue = Math.max(0, totalRev - revenueConsumedCents);
     const attributableProfitCents = input.attributableProfitCents != null ? Math.max(0, Math.floor(input.attributableProfitCents)) : Math.floor((newRevenue * PROFIT_MARGIN_BPS) / 10000);
-    const alloc = allocatePool(attributableProfitCents, input.boardAllocBps ?? DEFAULT_BOARD_ALLOC_BPS);
+    const alloc = allocatePool(attributableProfitCents, input.boardAllocBps ?? boardAllocBps);
     const ep: Epoch = { id: `ep_${newId()}`, poolCents: alloc.poolCents, boardAllocBps: alloc.boardAllocBps, attributableProfitCents, status: "open", createdAt: nowIso() };
     epochs.push(ep);
     revenueConsumedCents = totalRev;
@@ -210,6 +234,24 @@ export const aiModeling = {
       lifetimePaidCents: b.lifetimePaidCents
     };
   },
+  /** Top data contributors — a viral leaderboard of who earns from training the AI. */
+  leaderboard(limit = 10) {
+    const totalActiveWeight = tokens.filter((t) => t.inUtilization && !t.retired).reduce((a, t) => a + t.weightBps, 0) || 1;
+    const byHolder = new Map<string, { holderId: string; tokens: number; live: number; weightBps: number }>();
+    for (const t of tokens) {
+      if (t.retired) continue;
+      const cur = byHolder.get(t.holderId) || { holderId: t.holderId, tokens: 0, live: 0, weightBps: 0 };
+      cur.tokens += 1;
+      if (t.inUtilization) { cur.live += 1; cur.weightBps += t.weightBps; }
+      byHolder.set(t.holderId, cur);
+    }
+    return [...byHolder.values()]
+      .map((h) => ({ ...h, lifetimePaidCents: bal(h.holderId).lifetimePaidCents, lifetimePaidDisplay: formatUsdCents(bal(h.holderId).lifetimePaidCents), shareOfPoolPct: ((h.weightBps / totalActiveWeight) * 100).toFixed(2) }))
+      .sort((a, b) => b.lifetimePaidCents - a.lifetimePaidCents || b.weightBps - a.weightBps)
+      .slice(0, limit)
+      .map((h, i) => ({ rank: i + 1, ...h }));
+  },
+
   poolStatus() {
     const totalRev = revenue.reduce((a, e) => a + e.cents, 0);
     const active = tokens.filter((t) => t.inUtilization && !t.retired);
@@ -223,7 +265,10 @@ export const aiModeling = {
       modelUpdates: modelUpdates.length,
       deployedUpdates: modelUpdates.filter((u) => u.deployed).length,
       epochs: epochs.length,
-      boardAllocBps: DEFAULT_BOARD_ALLOC_BPS,
+      boardAllocBps,
+      boardAllocPct: boardAllocBps / 100,
+      boardAllocCeilingPct: MAX_BOARD_ALLOC_BPS / 100,
+      governance: `Board allocation ${boardAllocBps / 100}% of AI-attributable profit · scales to ${MAX_BOARD_ALLOC_BPS / 100}% as CrownX grows and the board approves · smart-contract-capped`,
       profitMarginBps: PROFIT_MARGIN_BPS,
       lastEpoch: lastEpoch ? { id: lastEpoch.id, poolDisplay: formatUsdCents(lastEpoch.poolCents), status: lastEpoch.status } : null,
       paidBeforeDividends: true
