@@ -34,10 +34,14 @@ export function BiometricLogin() {
     });
   }, []);
 
+  const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000";
   function onSuccess(res: AuthResult) {
     persistSession(res.accessToken);
     setUser(res.user.email);
     setPhase("success");
+    // sign-up acceptance: record the user's agreement to the active terms bundle
+    // (anchored audit trail). Non-blocking; the verified identity binds the signature.
+    fetch(`${GATEWAY}/api/terms/accept`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId: res.user.email, method: "passkey" }) }).catch(() => undefined);
   }
 
   async function runPasskey() {
@@ -190,6 +194,11 @@ export function BiometricLogin() {
       )}
 
       {showFallback && <FallbackForm onSuccess={onSuccess} />}
+
+      <div style={{ fontFamily: font.mono, fontSize: 9.5, color: color.mut2, letterSpacing: "0.04em", marginTop: 14, lineHeight: 1.6 }}>
+        By creating an account you sign and accept the CrownX{" "}
+        <a href="/terms" style={{ color: color.cyan }}>Terms &amp; Agreements</a> — smart contracts, data &amp; AI-modeling consent, authenticity-risk disclosure, and the Royalty Vault. Your acceptance is anchored on-chain.
+      </div>
 
       <div style={{ fontFamily: font.mono, fontSize: 9, color: color.mut2, letterSpacing: "0.06em", marginTop: 22, lineHeight: 1.7, textAlign: "left" }}>
         <span style={{ color: color.cyan }}>WebAuthn / FIDO2 passkeys</span> — biometric never leaves the device.

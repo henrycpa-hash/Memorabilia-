@@ -23,7 +23,8 @@ const NAV = [
   { href: "/appraiser", label: "Appraiser" },
   { href: "/status", label: "/LV99" },
   { href: "/rights", label: "Rights" },
-  { href: "/pricing", label: "Pricing" }
+  { href: "/pricing", label: "Pricing" },
+  { href: "/terms", label: "Terms" }
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }) {

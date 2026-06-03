@@ -96,6 +96,36 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C15 · Terms & Agreements — transparent, signed, governed on-chain (DONE)
+
+- **`terms-service :4083`**: a versioned, chain-anchored registry of every CrownX
+  agreement — Terms of Service, **Data Usage / Consent & AI-Modeling** (improves
+  as the AI trains on more data; the data dividend), **Authenticity Risk
+  Disclosure**, **Athlete & Celebrity Royalty Vault Terms**, and **Smart Contract
+  Terms** (royalty engine, COA, pack-n-ship escrow, data-dividend pool before
+  dividends, on-chain anchoring, governance ceiling). Each version is hashed +
+  anchored.
+- **Transparent**: anyone can read the full terms of every contract
+  (`GET /api/terms`, `/api/terms/agreement/:key`) and inspect the **on-chain
+  audit trail** (`/api/terms/audit`) — versions, governance approvals, and signature
+  counts.
+- **Signed at sign-up**: the login/passkey flow records the user's acceptance of
+  the active bundle (`POST /api/terms/accept`), anchored — an immutable audit
+  trail of who agreed to which version, when, and how. `acceptances/:userId`
+  reports whether a user is current or **needs to re-accept**.
+- **Governed amendments**: changing any agreement requires a proposal →
+  **governance + legal + COA sign-off** approvals (partial approval is blocked)
+  → activation publishes a new on-chain version and flags all users to re-accept.
+- **Surfaced**: public `/terms` page (nav "Terms") with every agreement
+  expandable to full text + version/hash/anchor + the audit trail; the login page
+  shows the sign-and-accept notice; the COA viewer links "Governed by CrownX
+  Terms". Gateway proxies `/api/terms/*`; aggregate health covers `terms`
+  (12/12 up).
+- Smoke (`scripts/smoke-terms.mjs`): registry covers all topics → full text →
+  sign-up acceptance (anchored) → propose amendment → partial approval blocked
+  409 → full approval → activate v2 → prior signer needs re-acceptance → audit
+  trail — **✅ PASS**. Ports 4073–4083.
+
 ## C14 · Board governance (3%→5%) + data-dividend wealth loop + viral leaderboard (DONE)
 
 - **Board allocation set to 3%**, scaling to a **5% smart-contract ceiling** as

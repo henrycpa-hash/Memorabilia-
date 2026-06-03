@@ -45,7 +45,8 @@ export function registerCrownxRoutes(app: FastifyInstance) {
       networkFeed: process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079",
       royaltyVault: process.env.ROYALTY_VAULT_SERVICE_URL || "http://localhost:4080",
       coaArtifact: process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081",
-      aiModeling: process.env.AI_MODELING_SERVICE_URL || "http://localhost:4082"
+      aiModeling: process.env.AI_MODELING_SERVICE_URL || "http://localhost:4082",
+      terms: process.env.TERMS_SERVICE_URL || "http://localhost:4083"
     };
     const checks = await Promise.all(
       Object.entries(targets).map(async ([name, base]) => {
@@ -338,4 +339,17 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   app.get("/api/ai-modeling/leaderboard", async (request, reply) => { const { limit } = request.query as { limit?: string }; const r = await proxy("GET", `${amBase()}/ai-modeling/leaderboard${limit ? `?limit=${limit}` : ""}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.get("/api/ai-modeling/pool", async (_req, reply) => { const r = await proxy("GET", `${amBase()}/ai-modeling/pool`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.get("/api/ai-modeling/user/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("GET", `${amBase()}/ai-modeling/user/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+
+  // ---- Terms & Agreements: transparent versioned registry + acceptance audit trail (proxy) ----
+  const tmBase = () => process.env.TERMS_SERVICE_URL || "http://localhost:4083";
+  app.get("/api/terms", async (_req, reply) => { const r = await proxy("GET", `${tmBase()}/terms`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/terms/bundle", async (_req, reply) => { const r = await proxy("GET", `${tmBase()}/terms/bundle`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/terms/agreement/:key", async (request, reply) => { const { key } = request.params as { key: string }; const { version } = request.query as { version?: string }; const r = await proxy("GET", `${tmBase()}/terms/agreement/${key}${version ? `?version=${version}` : ""}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/terms/audit", async (request, reply) => { const { key } = request.query as { key?: string }; const r = await proxy("GET", `${tmBase()}/terms/audit${key ? `?key=${encodeURIComponent(key)}` : ""}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/terms/accept", async (request, reply) => { const r = await proxy("POST", `${tmBase()}/terms/accept`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/terms/acceptances/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("GET", `${tmBase()}/terms/acceptances/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/terms/amendments", async (request, reply) => { const r = await proxy("POST", `${tmBase()}/terms/amendments`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/terms/amendments/:id/approve", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${tmBase()}/terms/amendments/${id}/approve`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/terms/amendments/:id/activate", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${tmBase()}/terms/amendments/${id}/activate`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/terms/amendments", async (_req, reply) => { const r = await proxy("GET", `${tmBase()}/terms/amendments`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
 }

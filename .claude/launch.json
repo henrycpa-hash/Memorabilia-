@@ -210,6 +210,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "ai-modeling-service", "dev"],
       "port": 4082
+    },
+    {
+      "name": "terms-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "terms-service", "dev"],
+      "port": 4083
     }
   ]
 }

@@ -48,6 +48,7 @@ export default async function CoaViewerPage({ params }: { params: Promise<{ id: 
       <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
         {artifact.athleteId && <ButtonLink href={`/athletes/${artifact.athleteId}`} as={Link} variant="secondary">View athlete account →</ButtonLink>}
         <ButtonLink href="/coa" as={Link} variant="secondary">← All certificates</ButtonLink>
+        <ButtonLink href="/terms" as={Link} variant="secondary">Governed by CrownX Terms →</ButtonLink>
       </div>
 
       <p style={{ fontFamily: font.mono, fontSize: 9.5, color: color.mut2, lineHeight: 1.7, marginTop: 18, maxWidth: 760 }}>

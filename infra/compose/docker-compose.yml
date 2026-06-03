@@ -34,6 +34,7 @@ services:
       ROYALTY_VAULT_SERVICE_URL: http://royalty-vault-service:4080
       COA_ARTIFACT_SERVICE_URL: http://coa-artifact-service:4081
       AI_MODELING_SERVICE_URL: http://ai-modeling-service:4082
+      TERMS_SERVICE_URL: http://terms-service:4083
     ports: ["4000:4000"]
     depends_on:
       - identity-service
@@ -151,6 +152,10 @@ services:
     env_file: [../../.env.example]
     environment: { NETWORK_FEED_SERVICE_URL: http://network-feed-service:4079 }
     ports: ["4082:4082"]
+  terms-service:
+    build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/terms-service } }
+    env_file: [../../.env.example]
+    ports: ["4083:4083"]
 
   identity-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/identity-service } }
