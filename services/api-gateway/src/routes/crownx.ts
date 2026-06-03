@@ -40,7 +40,8 @@ export function registerCrownxRoutes(app: FastifyInstance) {
       attribution: process.env.ATTRIBUTION_SERVICE_URL || "http://localhost:4074",
       passkey: process.env.PASSKEY_SERVICE_URL || "http://localhost:4075",
       athleteIndex: process.env.ATHLETE_INDEX_SERVICE_URL || "http://localhost:4076",
-      packNShip: process.env.PACK_N_SHIP_SERVICE_URL || "http://localhost:4077"
+      packNShip: process.env.PACK_N_SHIP_SERVICE_URL || "http://localhost:4077",
+      authEngine: process.env.AUTH_ENGINE_SERVICE_URL || "http://localhost:4078"
     };
     const checks = await Promise.all(
       Object.entries(targets).map(async ([name, base]) => {
@@ -269,4 +270,12 @@ export function registerCrownxRoutes(app: FastifyInstance) {
     app.post(`/api/trades/:id/${a}`, async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${pnsBase()}/trades/${id}/${a}`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   }
   app.post("/api/invites", async (request, reply) => { const r = await proxy("POST", `${pnsBase()}/invites`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+
+  // ---- Live authentication engine: SOP live-capture → authenticate → mint (proxy) ----
+  const authEngBase = () => process.env.AUTH_ENGINE_SERVICE_URL || "http://localhost:4078";
+  app.get("/api/auth/training-sources", async (_req, reply) => { const r = await proxy("GET", `${authEngBase()}/auth/training-sources`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/auth/session", async (request, reply) => { const r = await proxy("POST", `${authEngBase()}/auth/session`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/auth/price", async (request, reply) => { const r = await proxy("POST", `${authEngBase()}/auth/price`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/auth/mint", async (request, reply) => { const r = await proxy("POST", `${authEngBase()}/auth/mint`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/auth/coas/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("GET", `${authEngBase()}/auth/coas/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
 }

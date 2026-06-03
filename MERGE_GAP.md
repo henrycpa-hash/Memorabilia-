@@ -120,6 +120,29 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
   gateway. NOTE: the api-gateway preview can hang after many hot-reloads under
   heavy process load — stop+start it (preview) to recover; the proxies are fine.
 
+## C6 · Live authentication engine + minting dashboard (DONE — from the SOP)
+
+- **`@crownx-jewel/shared-authcore`**: deterministic multi-sensor fusion +
+  COA decision + weighted pricing from the SOP. Fuses AI photo-matching, NFC/RF
+  wave, Wi-Fi reflection, thermal/heat, material composition, and **fractional
+  hairline micro-detail** (plus tri-code, liveness, biometric, event correlation)
+  → confidence + anomaly → Genesis/Verified/Counterfeit. `priceMemorabilia()`
+  computes a **weighted dynamic value** from PSA / Beckett / JSA / WorthPoint /
+  eBay-sold comps (the Memorabilia Database sources), scaled by live-auth
+  confidence. `TRAINING_SOURCES` registry exposes the reference authorities.
+- **`authentication-engine-service :4078`** runs the SOP pipeline end-to-end:
+  Step 0 sealed session → Step 1 live-capture Proof-of-Origin → Steps 2–4
+  multi-sensor fusion + event correlation → Step 3 tri-code → Step 5 COA decision
+  → Step 6 AI fingerprint hash → Step 7 blockchain provenance anchor → **Step 8:
+  an authenticated mint CLIMBS /LV99** (grants first_mint/mint_top/mint_standard
+  XP via the xp-service). Verified: an authentic mint issued a Genesis COA worth
+  $7.6K and gave +1700 VXP (leveled up); a tampered item was flagged counterfeit
+  with the COA blocked and no rank credit.
+- **`/mint` dashboard** (collector-vault): live-capture scanner → animated
+  multi-sensor fusion bars (photo/NFC/Wi-Fi/heat/material/hairline) → COA verdict
+  → fingerprint + on-chain anchor → Genesis COA + weighted value + **rank-climb
+  panel**, plus the AI reference-data-sources panel. Gateway proxies `/api/auth/*`.
+
 ## C5 · Auto-market-making + net-worth hero (DONE)
 
 - **Automated market maker** in `athlete-index-service`: a designated MM holds

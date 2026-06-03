@@ -29,6 +29,7 @@ services:
       PASSKEY_SERVICE_URL: http://passkey-service:4075
       ATHLETE_INDEX_SERVICE_URL: http://athlete-index-service:4076
       PACK_N_SHIP_SERVICE_URL: http://pack-n-ship-service:4077
+      AUTH_ENGINE_SERVICE_URL: http://authentication-engine-service:4078
     ports: ["4000:4000"]
     depends_on:
       - identity-service
@@ -118,6 +119,12 @@ services:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/pack-n-ship-service } }
     env_file: [../../.env.example]
     ports: ["4077:4077"]
+  authentication-engine-service:
+    build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/authentication-engine-service } }
+    env_file: [../../.env.example]
+    environment: { XP_SERVICE_URL: http://xp-service:4073 }
+    ports: ["4078:4078"]
+    depends_on: [xp-service]
 
   identity-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/identity-service } }

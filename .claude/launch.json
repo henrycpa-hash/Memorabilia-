@@ -180,6 +180,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "pack-n-ship-service", "dev"],
       "port": 4077
+    },
+    {
+      "name": "authentication-engine-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "authentication-engine-service", "dev"],
+      "port": 4078
     }
   ]
 }
