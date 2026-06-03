@@ -328,7 +328,7 @@ export function buildGenesisCoa(input: BuildCoaInput): GenesisCoaArtifact {
     altM: input.geo?.altM ?? 14,
     accuracyM: input.geo?.accuracyM ?? 4.5
   };
-  const confidence = input.confidence ?? 96;
+  const confidence = Number.isFinite(input.confidence) ? Math.min(100, Math.max(0, input.confidence as number)) : 96;
 
   const paneA: LiveCapturePane = {
     videoUrl: input.videoUrl || "",

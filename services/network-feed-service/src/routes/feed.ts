@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { posInt } from "@crownx-jewel/shared-kernel";
 import { feedService } from "../domain/feed.service";
 
 export function registerFeedRoutes(app: FastifyInstance) {
@@ -68,8 +69,9 @@ export function registerFeedRoutes(app: FastifyInstance) {
   app.post("/feed/:id/bid", async (request, reply) => {
     const { id } = request.params as { id: string };
     const b = (request.body || {}) as { userId?: string; userName?: string; amountCents?: number };
-    if (!b.userId || !b.amountCents) return reply.code(400).send({ error: "userId_and_amountCents_required" });
-    const r = feedService.bid(id, b.userId, b.userName || b.userId, Math.floor(b.amountCents));
+    const amount = posInt(b.amountCents);
+    if (!b.userId || amount === null) return reply.code(400).send({ error: "userId_and_positive_amountCents_required" });
+    const r = feedService.bid(id, b.userId, b.userName || b.userId, amount);
     if ("error" in r) return reply.code(409).send(r);
     return r;
   });

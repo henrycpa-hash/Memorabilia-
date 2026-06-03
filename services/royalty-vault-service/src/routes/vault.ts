@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { Scenario, FanTier, AthleteTier } from "@crownx-jewel/shared-royalty";
+import { posInt } from "@crownx-jewel/shared-kernel";
 import { royaltyVault } from "../domain/royalty-vault.service";
 
 export function registerRoyaltyVaultRoutes(app: FastifyInstance) {
@@ -21,8 +22,9 @@ export function registerRoyaltyVaultRoutes(app: FastifyInstance) {
   // settle a resale (the 10% split; athlete slice held/paid)
   app.post("/royalty-vault/settle", async (request, reply) => {
     const b = (request.body || {}) as { assetId?: string; salePriceCents?: number };
-    if (!b.assetId || !b.salePriceCents) return reply.code(400).send({ error: "assetId_and_salePriceCents_required" });
-    const r = royaltyVault.settle(b.assetId, Math.floor(b.salePriceCents));
+    const price = posInt(b.salePriceCents);
+    if (!b.assetId || price === null) return reply.code(400).send({ error: "assetId_and_positive_salePriceCents_required" });
+    const r = royaltyVault.settle(b.assetId, price);
     if ("error" in r) return reply.code(404).send(r);
     return r;
   });

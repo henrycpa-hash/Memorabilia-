@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { posInt } from "@crownx-jewel/shared-kernel";
 import { escrowService } from "../domain/escrow.service";
 
 export function registerEscrowRoutes(app: FastifyInstance) {
@@ -13,8 +14,9 @@ export function registerEscrowRoutes(app: FastifyInstance) {
   // SELL → create the trade
   app.post("/trades", async (request, reply) => {
     const b = (request.body || {}) as { assetId?: string; sellerId?: string; buyerId?: string; priceCents?: number };
-    if (!b.assetId || !b.sellerId || !b.buyerId || !b.priceCents) return reply.code(400).send({ error: "assetId_sellerId_buyerId_priceCents_required" });
-    return reply.code(201).send(escrowService.create({ assetId: b.assetId, sellerId: b.sellerId, buyerId: b.buyerId, priceCents: b.priceCents }));
+    const price = posInt(b.priceCents);
+    if (!b.assetId || !b.sellerId || !b.buyerId || price === null) return reply.code(400).send({ error: "assetId_sellerId_buyerId_positive_priceCents_required" });
+    return reply.code(201).send(escrowService.create({ assetId: b.assetId, sellerId: b.sellerId, buyerId: b.buyerId, priceCents: price }));
   });
 
   const act = (fn: (id: string, body: Record<string, unknown>) => unknown) => async (request: { params: unknown; body: unknown }, reply: { code: (n: number) => { send: (b: unknown) => unknown } }) => {

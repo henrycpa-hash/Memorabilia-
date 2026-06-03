@@ -96,6 +96,32 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C11 · Production hardening — all engines (DONE)
+
+A hardening sweep across all 9 live CrownX engines + the gateway.
+
+- **`@crownx-jewel/shared-kernel/harden`** (NEW): `hardenFastify(app, service)`
+  (global error + 404 handlers → clean JSON, never a hang/opaque 500),
+  `safeFetch` / `safePostJson` (timeout-guarded cross-service calls that return
+  null instead of cascade-hanging), and numeric validators (`posInt`,
+  `nonNegInt`, `posNum`, `clampNum`, `reqStr`).
+- **Global error + 404 handlers** registered on every engine (xp, attribution,
+  passkey, athlete-index, pack-n-ship, auth-engine, network-feed, royalty-vault,
+  coa-artifact) + the gateway → unknown routes return
+  `{error:"route_not_found",service,path}`; thrown errors return clean JSON.
+- **Cascade-hang fix**: auth-engine's awaited `grantXp` (xp-service) now uses
+  `safePostJson` with a 4s timeout, so a slow/down xp-service can never hang the
+  mint pipeline (feed's cross-service `call` already had a 4s timeout).
+- **Input validation** on every financial mutation: royalty settle, athlete
+  orders (+ side enum) / fractions buy+sell, appraisal submit, pack-n-ship trade
+  create, feed bid — all reject NaN / negative / zero / non-finite / bad-enum
+  input with 400 instead of NaN-poisoning the engines. COA `buildGenesisCoa`
+  clamps confidence defensively.
+- Smoke (`scripts/smoke-hardening.mjs`): clean 404 JSON on all 7 probed engines,
+  8 malformed-input cases → 400, valid input → 200 — **✅ PASS**. All functional
+  smokes (auth, feed, royalty-vault, coa-artifact, appraiser-network, round6,
+  round7) re-verified green with zero regressions; health 10/10 up.
+
 ## C10 · Appraiser Network — choose your appraiser + authenticated signed report (DONE)
 
 Turns the single anonymous appraiser queue into a **network of certified

@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { hardenFastify } from "@crownx-jewel/shared-kernel";
 import jwt from "@fastify/jwt";
 import { registerHealthRoutes } from "./routes/health";
 import { registerIdentityRoutes } from "./routes/identity";
@@ -185,5 +186,6 @@ export async function buildGateway() {
   // CrownX revamp — additive surfaces (no pricing-lock files touched)
   registerCrownxRoutes(app);
 
+  hardenFastify(app, "api-gateway");
   return app;
 }

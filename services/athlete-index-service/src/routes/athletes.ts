@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { AthleteSignals, ContractKind } from "@crownx-jewel/shared-valuation";
+import { posInt } from "@crownx-jewel/shared-kernel";
 import { athleteService, type TimelineEvent, type OrderSide, type Appraisal } from "../domain/athlete.service";
 
 export function registerAthleteRoutes(app: FastifyInstance) {
@@ -28,8 +29,9 @@ export function registerAthleteRoutes(app: FastifyInstance) {
   app.post("/athletes/:id/fractions/buy", async (request, reply) => {
     const { id } = request.params as { id: string };
     const b = (request.body || {}) as { userId?: string; shares?: number };
-    if (!b.userId || !b.shares) return reply.code(400).send({ error: "userId_and_shares_required" });
-    const r = athleteService.buyFractions(id, b.userId, Math.floor(b.shares));
+    const sharesBuy = posInt(b.shares);
+    if (!b.userId || sharesBuy === null) return reply.code(400).send({ error: "userId_and_positive_shares_required" });
+    const r = athleteService.buyFractions(id, b.userId, sharesBuy);
     if ("error" in r) return reply.code(409).send(r);
     return r;
   });
@@ -37,8 +39,9 @@ export function registerAthleteRoutes(app: FastifyInstance) {
   app.post("/athletes/:id/fractions/sell", async (request, reply) => {
     const { id } = request.params as { id: string };
     const b = (request.body || {}) as { userId?: string; shares?: number };
-    if (!b.userId || !b.shares) return reply.code(400).send({ error: "userId_and_shares_required" });
-    const r = athleteService.sellFractions(id, b.userId, Math.floor(b.shares));
+    const sharesSell = posInt(b.shares);
+    if (!b.userId || sharesSell === null) return reply.code(400).send({ error: "userId_and_positive_shares_required" });
+    const r = athleteService.sellFractions(id, b.userId, sharesSell);
     if ("error" in r) return reply.code(409).send(r);
     return r;
   });
@@ -122,8 +125,9 @@ export function registerAthleteRoutes(app: FastifyInstance) {
   app.post("/athletes/:id/orders", async (request, reply) => {
     const { id } = request.params as { id: string };
     const b = (request.body || {}) as { userId?: string; side?: OrderSide; shares?: number; limitPriceCents?: number };
-    if (!b.userId || !b.side || !b.shares || !b.limitPriceCents) return reply.code(400).send({ error: "userId_side_shares_limitPriceCents_required" });
-    const r = athleteService.placeOrder(id, b.userId, b.side, Math.floor(b.shares), Math.floor(b.limitPriceCents));
+    const shares = posInt(b.shares), price = posInt(b.limitPriceCents);
+    if (!b.userId || (b.side !== "buy" && b.side !== "sell") || shares === null || price === null) return reply.code(400).send({ error: "userId_side(buy|sell)_positive_shares_limitPriceCents_required" });
+    const r = athleteService.placeOrder(id, b.userId, b.side, shares, price);
     if ("error" in r) return reply.code(409).send(r);
     return reply.code(201).send(r);
   });
@@ -200,8 +204,9 @@ export function registerAthleteRoutes(app: FastifyInstance) {
   app.post("/appraisals/:appraisalId/submit", async (request, reply) => {
     const { appraisalId } = request.params as { appraisalId: string };
     const b = (request.body || {}) as { appraiserId?: string; appraisedValueCents?: number; notes?: string; report?: { method?: string; comparables?: string[]; condition?: string; statement?: string } };
-    if (!b.appraiserId || !b.appraisedValueCents) return reply.code(400).send({ error: "appraiserId_and_appraisedValueCents_required" });
-    const r = athleteService.submitAppraisal(appraisalId, b.appraiserId, Math.floor(b.appraisedValueCents), b.notes, b.report);
+    const value = posInt(b.appraisedValueCents);
+    if (!b.appraiserId || value === null) return reply.code(400).send({ error: "appraiserId_and_positive_appraisedValueCents_required" });
+    const r = athleteService.submitAppraisal(appraisalId, b.appraiserId, value, b.notes, b.report);
     if ("error" in r) return reply.code(r.error === "assigned_to_another_appraiser" ? 403 : 404).send(r);
     return r;
   });

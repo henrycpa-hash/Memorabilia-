@@ -1,4 +1,4 @@
-import { newId, nowIso } from "@crownx-jewel/shared-kernel";
+import { newId, nowIso, safePostJson } from "@crownx-jewel/shared-kernel";
 import { anchor, type AnchorReceipt } from "@crownx-jewel/shared-chain";
 import {
   fuseSensors,
@@ -61,14 +61,10 @@ const coas: IssuedCoa[] = [];
 const mintedBy = new Map<string, number>(); // userId -> count of authenticated mints
 
 async function grantXp(userId: string, action: string): Promise<{ vxpGranted: number; level: number; tier: string; leveledUp: boolean } | null> {
-  try {
-    const res = await fetch(`${XP_URL()}/xp/grant`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId, action }) });
-    if (!res.ok) return null;
-    const d = (await res.json()) as { vxpGranted: number; rank: { level: number; tier: string }; leveledUp: boolean };
-    return { vxpGranted: d.vxpGranted, level: d.rank.level, tier: d.rank.tier, leveledUp: d.leveledUp };
-  } catch {
-    return null;
-  }
+  // timeout-guarded: a slow/down xp-service must never hang the mint pipeline
+  const d = (await safePostJson(`${XP_URL()}/xp/grant`, { userId, action }, 4000)) as { vxpGranted: number; rank: { level: number; tier: string }; leveledUp: boolean } | null;
+  if (!d || !d.rank) return null;
+  return { vxpGranted: d.vxpGranted, level: d.rank.level, tier: d.rank.tier, leveledUp: d.leveledUp };
 }
 
 export const authEngine = {
