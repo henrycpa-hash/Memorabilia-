@@ -172,6 +172,17 @@ a:hover {
     opacity: 1;
   }
 }
+@keyframes cx-slabspin {
+  0% {
+    transform: rotateY(-16deg) rotateX(4deg);
+  }
+  50% {
+    transform: rotateY(16deg) rotateX(-3deg);
+  }
+  100% {
+    transform: rotateY(-16deg) rotateX(4deg);
+  }
+}
 
 /* utility classes consumed by ported surfaces */
 .cx-mono {

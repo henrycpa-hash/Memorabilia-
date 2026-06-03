@@ -120,6 +120,23 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
   gateway. NOTE: the api-gateway preview can hang after many hot-reloads under
   heavy process load — stop+start it (preview) to recover; the proxies are fine.
 
+## C7 · Network feed: 3D mints, live bids, click-to-buy, athlete news (DONE)
+
+- **`network-feed-service :4079`** — one stream of market news + viral moments:
+  `mint` (3D floating slab), `listing` (click-to-buy), `auction` (live bids),
+  `athlete_news` (moves the tokenized athlete value), `promo`.
+- **Comments scoped**: allowed only on athlete_news + promo so chatter never
+  crowds the items on the market (mint/listing/auction stay clean — verified
+  `comments_disabled_on_market_items`).
+- **Athlete news re-prices the token**: posting news calls athlete-index signals
+  and shows the live delta (verified +3.7% on a major-endorsement post).
+- **Live bids** on auctions (higher-or-reject); **click-to-buy** a listing opens
+  a **Pack-N-Ship escrow trade** (the purchase flows straight into pack/ship);
+  **boost** amplifies reach and grants XP + a share-card render (viral loop).
+- **UI `/feed`** with a drag-to-spin **3D/4D holographic FloatingSlab3D** on mint
+  moments, buy/bid/boost/comment inline. Gateway proxies `/api/feed/*`;
+  aggregate `/api/health` now covers networkFeed.
+
 ## C6 · Live authentication engine + minting dashboard (DONE — from the SOP)
 
 - **`@crownx-jewel/shared-authcore`**: deterministic multi-sensor fusion +

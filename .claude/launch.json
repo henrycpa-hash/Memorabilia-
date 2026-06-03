@@ -186,6 +186,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "authentication-engine-service", "dev"],
       "port": 4078
+    },
+    {
+      "name": "network-feed-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "network-feed-service", "dev"],
+      "port": 4079
     }
   ]
 }

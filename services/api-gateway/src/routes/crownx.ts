@@ -41,7 +41,8 @@ export function registerCrownxRoutes(app: FastifyInstance) {
       passkey: process.env.PASSKEY_SERVICE_URL || "http://localhost:4075",
       athleteIndex: process.env.ATHLETE_INDEX_SERVICE_URL || "http://localhost:4076",
       packNShip: process.env.PACK_N_SHIP_SERVICE_URL || "http://localhost:4077",
-      authEngine: process.env.AUTH_ENGINE_SERVICE_URL || "http://localhost:4078"
+      authEngine: process.env.AUTH_ENGINE_SERVICE_URL || "http://localhost:4078",
+      networkFeed: process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079"
     };
     const checks = await Promise.all(
       Object.entries(targets).map(async ([name, base]) => {
@@ -278,4 +279,15 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   app.post("/api/auth/price", async (request, reply) => { const r = await proxy("POST", `${authEngBase()}/auth/price`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.post("/api/auth/mint", async (request, reply) => { const r = await proxy("POST", `${authEngBase()}/auth/mint`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.get("/api/auth/coas/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("GET", `${authEngBase()}/auth/coas/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+
+  // ---- Network feed: market news + viral moments + live bids + click-to-buy (proxy) ----
+  const feedBase = () => process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079";
+  app.get("/api/feed", async (request, reply) => { const { limit } = request.query as { limit?: string }; const r = await proxy("GET", `${feedBase()}/feed${limit ? `?limit=${limit}` : ""}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/feed/:id", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${feedBase()}/feed/${id}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  for (const k of ["mint", "listing", "auction", "athlete-news", "promo"]) {
+    app.post(`/api/feed/${k}`, async (request, reply) => { const r = await proxy("POST", `${feedBase()}/feed/${k}`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  }
+  for (const a of ["comment", "boost", "react", "bid", "buy", "settle-auction"]) {
+    app.post(`/api/feed/:id/${a}`, async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${feedBase()}/feed/${id}/${a}`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  }
 }
