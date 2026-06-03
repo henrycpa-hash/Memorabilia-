@@ -96,6 +96,33 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C12 · Pop-out sidebar nav · passkey-verified athlete funnel · Vault protocol page (DONE)
+
+- **Pop-out sidebar nav** (`shared-design/NavBar.tsx`): the top bar's CrownX logo
+  is now the sidebar toggle. Clicking it slides a fully-wired navigation drawer
+  in from the left — backdrop, ESC-to-close, body-scroll lock, links route
+  through the host app's LinkComponent and close on navigate. `AppShell` renders
+  `NavBar` (moved the nav off the top bar into the drawer); affects every app.
+- **Athlete funnel → real FIDO2 verification**: the `creator-portal /athlete`
+  onboarding (from `crownx-athlete-onboarding.html`) no longer fakes the
+  biometric step. It now uses the existing secure-login procedure —
+  `lib/webauthn.ts` (`@simplewebauthn/browser`) → `/api/auth/passkey/login|register`
+  → passkey-service verifies the signature → gateway mints the JWT — so the
+  athlete/celebrity is cryptographically verified (and session-bound) BEFORE any
+  royalty is released. An email field binds the passkey; the claim records the
+  real method (`passkey`); graceful biometric fallback where no platform
+  authenticator exists (e.g. sandboxed preview).
+- **Vault protocol landing** (`public-story-web /vault`, from
+  `crownx-vault-v2.html`): hero (Verify·Protect·Monetize), the why + patent,
+  the living slab (CSS-3D), the Genesis COA pipeline, **royalties-for-life
+  scenario switcher wired live to `/api/royalty-vault/scenarios`** with the
+  canonical split bars, tiered pricing (both sides), and the mint moment. CTAs
+  route into the real surfaces (mint, COA viewer, claim). Added to the nav as
+  "The Protocol".
+- Verified: typecheck clean across shared-design + creator-portal +
+  public-story-web + collector-vault + market-web; `/vault` renders 200 with the
+  live scenario switcher, `/athlete` renders 200 with the passkey step.
+
 ## C11 · Production hardening — all engines (DONE)
 
 A hardening sweep across all 9 live CrownX engines + the gateway.

@@ -17,6 +17,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           maxWidth={1100}
           LinkComponent={Link}
           nav={[
+            { href: "/vault", label: "The Protocol" },
             { href: "/how-it-works", label: "How It Works" },
             { href: "/royalties", label: "Royalties" },
             { href: "/creators", label: "Creators" },

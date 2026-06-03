@@ -209,3 +209,9 @@ a:hover {
   animation: cx-sheen 3.5s linear infinite;
   pointer-events: none;
 }
+
+/* sidebar nav link hover (NavBar pop-out drawer) */
+.cx-navlink:hover {
+  background: rgba(63, 217, 212, 0.07);
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}

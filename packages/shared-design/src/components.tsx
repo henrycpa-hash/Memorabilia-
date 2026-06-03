@@ -8,6 +8,7 @@
  */
 import type { CSSProperties, ReactNode } from "react";
 import { color, font, radius, gradient, shadow } from "./tokens";
+import { NavBar } from "./NavBar";
 
 /* ------------------------------------------------------------------ Crown */
 
@@ -104,47 +105,9 @@ export function AppShell({
   maxWidth?: number;
   LinkComponent?: React.ElementType;
 }) {
-  const L = LinkComponent || "a";
   return (
     <>
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          backdropFilter: "blur(16px)",
-          background: "rgba(4,6,13,0.7)",
-          borderBottom: `1px solid ${color.line}`
-        }}
-      >
-        <div
-          style={{
-            maxWidth,
-            margin: "0 auto",
-            padding: "13px 24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16
-          }}
-        >
-          <L href={brandHref} style={{ textDecoration: "none" }}>
-            <Brand size={19} sub={brandSub} />
-          </L>
-          <nav style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
-            {nav.map((n) => (
-              <L
-                key={n.href}
-                href={n.href}
-                style={{ color: color.mut, fontSize: 13, fontFamily: font.mono, letterSpacing: "0.06em", textDecoration: "none" }}
-              >
-                {n.label}
-              </L>
-            ))}
-            {actions}
-          </nav>
-        </div>
-      </header>
+      <NavBar brandHref={brandHref} brandSub={brandSub} nav={nav} actions={actions} maxWidth={maxWidth} LinkComponent={LinkComponent} />
       <main style={{ maxWidth, margin: "0 auto", padding: "28px 24px 80px" }}>{children}</main>
     </>
   );
