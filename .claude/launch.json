@@ -204,6 +204,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "coa-artifact-service", "dev"],
       "port": 4081
+    },
+    {
+      "name": "ai-modeling-service",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "ai-modeling-service", "dev"],
+      "port": 4082
     }
   ]
 }

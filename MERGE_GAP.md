@@ -96,6 +96,44 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C13 · AI-Modeling Data Dividend + Genesis COA across ALL pipelines (DONE)
+
+Sovereignty data consent + tokenized AI-modeling compensation, and the full
+Genesis COA Artifact now issues from every COA authentication pipeline.
+
+- **`@crownx-jewel/shared-datadividend`**: `computeDataWeight()` — a DYNAMIC
+  weighted rate from sensor-matrix coverage, rarity (inverse commonness),
+  signature complexity (entropy/anomaly), authentication confidence, and frontier
+  novelty (~0.5×–1.5× data-value units). `tokenBindingHash` (token→model-update),
+  `allocatePool` (board bps of profit, computed BEFORE dividends),
+  `distributeCompensation` (pro-rata by weight among in-utilization tokens),
+  `rollupByHolder`.
+- **`ai-modeling-service :4082`**: sovereignty **data consent** gate; mints a
+  Data Contribution Token on every CONSENTED COA authentication (weighted rate,
+  anchored); records **model-improvement updates that hash the contributing
+  tokens in**; deploying an update to the live PRO product flips its tokens to
+  **in-utilization**; **revenue intake** (the cash-flow the pool is tied to);
+  **compensation epochs** allocate the pool from AI-attributable profit (board
+  bps) **before shareholder dividends** and distribute pro-rata, anchored
+  (`modeling.dividend.paid`, `beforeShareholderDividends:true`). Hardened.
+- **All COA pipelines** now issue the full dynamic Genesis COA Artifact +
+  (consented) mint a data token: `authentication-engine` mint (already issued the
+  artifact) now also mints a token from the fusion modalities; **`pack-n-ship`
+  buyer re-authentication** (the release gate) now issues the full Genesis COA
+  Artifact via coa-artifact-service AND mints a token from the live re-auth
+  capture. Both fire-and-forget / non-blocking.
+- **UI** (`collector-vault /data`, nav "Data Dividend"): consent toggle, your
+  weighted contribution tokens (in-utilization badges + token→update hash),
+  lifetime dividends + share-of-pool, the compensation pool (revenue-tied, board
+  alloc, before dividends) with a run-epoch action, and the model updates your
+  tokens are hashed into.
+- Gateway proxies `/api/ai-modeling/*`; aggregate `/api/health` covers
+  `aiModeling` (11/11 up). Smoke (`scripts/smoke-ai-modeling.mjs`): no-consent
+  gated → rich 1.24× vs sparse 0.68× → low-confidence ineligible → update hashes
+  tokens → deploy → epoch pool from profit before dividends → pro-rata
+  distribution — **✅ PASS**. Verified live: mint → henry token (2→3);
+  pack-n-ship release → full COA artifact (CXG-…, 11 3D layers). Ports 4073–4082.
+
 ## C12 · Pop-out sidebar nav · passkey-verified athlete funnel · Vault protocol page (DONE)
 
 - **Pop-out sidebar nav** (`shared-design/NavBar.tsx`): the top bar's CrownX logo

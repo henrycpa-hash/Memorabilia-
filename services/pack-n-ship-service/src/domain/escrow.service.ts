@@ -1,6 +1,16 @@
 import { newId, nowIso } from "@crownx-jewel/shared-kernel";
 import { anchor, type AnchorReceipt } from "@crownx-jewel/shared-chain";
 
+const COA_ARTIFACT_URL = () => process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081";
+const AI_MODELING_URL = () => process.env.AI_MODELING_SERVICE_URL || "http://localhost:4082";
+
+/** Fire-and-forget POST (timeout-guarded) — never blocks the settlement flow. */
+function fire(url: string, body: unknown): void {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 4000);
+  fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ctrl.signal }).catch(() => undefined).finally(() => clearTimeout(t));
+}
+
 /**
  * CrownX Authentication Pack-N-Ship — escrow-gated, COA-gated settlement.
  *
@@ -175,10 +185,25 @@ export const escrowService = {
     t.genesisCoa = `CXG-${t.id.slice(0, 8).toUpperCase()}`;
     t.coaReleased = true;
     t.fundsReleased = true;
-    step(t, "authenticated", `AI confidence ${ai.confidence} ✓ · Genesis COA ${t.genesisCoa} released`);
+    const fp = anchor("pns.coa.fingerprint", { tradeId: t.id, assetId: t.assetId, conf: ai.confidence }, nowIso());
+    const coaArtifactId = `coa_pns_${t.id}`;
+    // ALL COA pipelines issue the FULL dynamic Genesis COA Artifact (3D/4D + AR/VR)
+    fire(`${COA_ARTIFACT_URL()}/coa-artifact`, {
+      id: coaArtifactId, tokenId: `tok_${fp.hash.slice(0, 18)}`, coaNumber: t.genesisCoa, kind: "genesis",
+      title: `Re-authenticated receipt · ${t.assetId}`, assetType: "memorabilia", ownerUserId: t.buyerId,
+      fingerprintHash: `keccak512:${fp.hash}`, sessionDna: fp.hash.slice(0, 24),
+      anchorTxRef: fp.txRef, anchorBlock: fp.block, anchorChain: fp.chain, confidence: Math.round(ai.confidence * 100)
+    });
+    // Consented AI-modeling Data Contribution Token from the live re-auth capture
+    fire(`${AI_MODELING_URL()}/ai-modeling/contribute`, {
+      holderId: t.buyerId, assetId: t.assetId, coaId: coaArtifactId,
+      modalities: ["photoMatch", "liveness", "materialComposition"], confidence: Math.round(ai.confidence * 100),
+      anomalyScore: 4, commonness: 0.5, novel: false, assetClass: "memorabilia"
+    });
+    step(t, "authenticated", `AI confidence ${ai.confidence} ✓ · Genesis COA ${t.genesisCoa} released · artifact ${coaArtifactId}`);
     step(t, "released", `Funds ${(t.escrowCents / 100).toFixed(2)} released to seller`);
     this.settleOut(t);
-    return { ...this.view(t), ai };
+    return { ...this.view(t), ai, coaArtifactId };
   },
 
   /** Connected-accounts-by-invite detection between two users. */

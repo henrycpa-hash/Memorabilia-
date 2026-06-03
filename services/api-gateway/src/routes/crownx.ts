@@ -44,7 +44,8 @@ export function registerCrownxRoutes(app: FastifyInstance) {
       authEngine: process.env.AUTH_ENGINE_SERVICE_URL || "http://localhost:4078",
       networkFeed: process.env.NETWORK_FEED_SERVICE_URL || "http://localhost:4079",
       royaltyVault: process.env.ROYALTY_VAULT_SERVICE_URL || "http://localhost:4080",
-      coaArtifact: process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081"
+      coaArtifact: process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081",
+      aiModeling: process.env.AI_MODELING_SERVICE_URL || "http://localhost:4082"
     };
     const checks = await Promise.all(
       Object.entries(targets).map(async ([name, base]) => {
@@ -320,4 +321,19 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   app.post("/api/coa-artifact/:id/xr-session", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${coaBase()}/coa-artifact/${id}/xr-session`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.post("/api/coa-artifact/xr/:sessionId/gesture", async (request, reply) => { const { sessionId } = request.params as { sessionId: string }; const r = await proxy("POST", `${coaBase()}/coa-artifact/xr/${sessionId}/gesture`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.post("/api/coa-artifact/:id/transfer", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("POST", `${coaBase()}/coa-artifact/${id}/transfer`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+
+  // ---- AI-modeling Data Dividend: consent + contribution tokens + pro-rata pool (proxy) ----
+  const amBase = () => process.env.AI_MODELING_SERVICE_URL || "http://localhost:4082";
+  app.get("/api/ai-modeling/consent/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("GET", `${amBase()}/ai-modeling/consent/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/ai-modeling/consent/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("POST", `${amBase()}/ai-modeling/consent/${userId}`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/ai-modeling/contribute", async (request, reply) => { const r = await proxy("POST", `${amBase()}/ai-modeling/contribute`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/ai-modeling/model-update", async (request, reply) => { const r = await proxy("POST", `${amBase()}/ai-modeling/model-update`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/ai-modeling/model-update/:updateId/deploy", async (request, reply) => { const { updateId } = request.params as { updateId: string }; const r = await proxy("POST", `${amBase()}/ai-modeling/model-update/${updateId}/deploy`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/ai-modeling/model-updates", async (_req, reply) => { const r = await proxy("GET", `${amBase()}/ai-modeling/model-updates`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/ai-modeling/revenue", async (request, reply) => { const r = await proxy("POST", `${amBase()}/ai-modeling/revenue`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/ai-modeling/epoch", async (request, reply) => { const r = await proxy("POST", `${amBase()}/ai-modeling/epoch`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.post("/api/ai-modeling/epoch/:epochId/distribute", async (request, reply) => { const { epochId } = request.params as { epochId: string }; const r = await proxy("POST", `${amBase()}/ai-modeling/epoch/${epochId}/distribute`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/ai-modeling/epochs", async (_req, reply) => { const r = await proxy("GET", `${amBase()}/ai-modeling/epochs`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/ai-modeling/pool", async (_req, reply) => { const r = await proxy("GET", `${amBase()}/ai-modeling/pool`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/ai-modeling/user/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("GET", `${amBase()}/ai-modeling/user/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
 }

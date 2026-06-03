@@ -33,6 +33,7 @@ services:
       NETWORK_FEED_SERVICE_URL: http://network-feed-service:4079
       ROYALTY_VAULT_SERVICE_URL: http://royalty-vault-service:4080
       COA_ARTIFACT_SERVICE_URL: http://coa-artifact-service:4081
+      AI_MODELING_SERVICE_URL: http://ai-modeling-service:4082
     ports: ["4000:4000"]
     depends_on:
       - identity-service
@@ -121,11 +122,12 @@ services:
   pack-n-ship-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/pack-n-ship-service } }
     env_file: [../../.env.example]
+    environment: { COA_ARTIFACT_SERVICE_URL: http://coa-artifact-service:4081, AI_MODELING_SERVICE_URL: http://ai-modeling-service:4082 }
     ports: ["4077:4077"]
   authentication-engine-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/authentication-engine-service } }
     env_file: [../../.env.example]
-    environment: { XP_SERVICE_URL: http://xp-service:4073, COA_ARTIFACT_SERVICE_URL: http://coa-artifact-service:4081 }
+    environment: { XP_SERVICE_URL: http://xp-service:4073, COA_ARTIFACT_SERVICE_URL: http://coa-artifact-service:4081, AI_MODELING_SERVICE_URL: http://ai-modeling-service:4082 }
     ports: ["4078:4078"]
     depends_on: [xp-service]
   network-feed-service:
@@ -144,6 +146,10 @@ services:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/coa-artifact-service } }
     env_file: [../../.env.example]
     ports: ["4081:4081"]
+  ai-modeling-service:
+    build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/ai-modeling-service } }
+    env_file: [../../.env.example]
+    ports: ["4082:4082"]
 
   identity-service:
     build: { context: ../.., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE_PATH: services/identity-service } }

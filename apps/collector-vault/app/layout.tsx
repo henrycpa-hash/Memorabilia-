@@ -15,6 +15,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/mint", label: "Mint" },
   { href: "/coa", label: "COA 3D/AR" },
+  { href: "/data", label: "Data Dividend" },
   { href: "/portfolio", label: "Vault" },
   { href: "/notifications", label: "Activity" },
   { href: "/athletes", label: "Exchange" },

@@ -29,6 +29,16 @@ import {
 
 const XP_URL = () => process.env.XP_SERVICE_URL || "http://localhost:4073";
 const COA_ARTIFACT_URL = () => process.env.COA_ARTIFACT_SERVICE_URL || "http://localhost:4081";
+const AI_MODELING_URL = () => process.env.AI_MODELING_SERVICE_URL || "http://localhost:4082";
+
+/**
+ * Fire-and-forget: mint a consented AI-modeling Data Contribution Token from the
+ * authenticated capture. The ai-modeling-service gates on the user's consent and
+ * computes the dynamic weighted rate; non-blocking so it never affects the mint.
+ */
+function mintDataToken(body: Record<string, unknown>): void {
+  fetch(`${AI_MODELING_URL()}/ai-modeling/contribute`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => undefined);
+}
 
 /**
  * Fire-and-forget: issue the dynamic Genesis COA Artifact (dual-pane 3D/4D,
@@ -156,6 +166,19 @@ export const authEngine = {
       fusionContributions: fusion.contributions,
       valuationCents: price.valueCents,
       valuationDisplay: formatUsdCents(price.valueCents)
+    });
+
+    // Consented AI-modeling Data Contribution Token from this authenticated capture
+    mintDataToken({
+      holderId: input.userId,
+      assetId: tokenId,
+      coaId: coaArtifactId,
+      modalities: fusion.contributions.filter((c) => c.score >= 50).map((c) => c.modality),
+      confidence: fusion.confidence,
+      anomalyScore: fusion.anomalyScore,
+      commonness: 0.5,
+      novel: fusion.anomalyScore > 6,
+      assetClass: coa.assetType
     });
 
     // Step 8 — authenticated mint CLIMBS the rank: grant XP via the xp-service
