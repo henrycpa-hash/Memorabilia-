@@ -34,7 +34,7 @@ export function registerEscrowRoutes(app: FastifyInstance) {
     return r;
   });
   app.post("/trades/:id/delivered", act((id) => escrowService.markDelivered(id)));
-  app.post("/trades/:id/authenticate", act((id, b) => escrowService.authenticateReceipt(id, b.imageRef as string | undefined)));
+  app.post("/trades/:id/authenticate", act((id, b) => escrowService.authenticateReceipt(id, b.imageRef as string | undefined, typeof b.confidence === "number" ? (b.confidence as number) : undefined)));
   app.post("/trades/:id/investigate", act((id) => escrowService.investigate(id)));
 
   // fraud graph: connected-accounts-by-invite

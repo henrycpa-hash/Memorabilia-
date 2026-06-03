@@ -24,14 +24,15 @@ console.log(`   holdings transferred: seller ${sellerHold.shares} · buyer ${buy
 const top = await get(`/api/athletes/${aid}/top-stakeholders`);
 console.log(`   top stakeholders: ${top.holders.slice(0, 3).map((h) => `#${h.rank} ${h.userId}(${h.shares})`).join("  ")}`);
 
-console.log("=== B. APPRAISER HUMAN-IN-THE-LOOP QUEUE ===");
-const req = await post(`/api/athletes/${aid}/appraisal`, { assetId: "ast_jersey1", requestedBy: "fan_buyer" });
-console.log(`   requested → ${req.status} · model-implied ${req.modelImpliedDisplay} · id ${req.appraisalId.slice(0, 8)}`);
-let queue = await get("/api/appraisals?status=queued");
-console.log(`   appraiser sees ${queue.length} queued`);
-await post(`/api/appraisals/${req.appraisalId}/claim`, { appraiserId: "appraiser_jordan" });
-const done = await post(`/api/appraisals/${req.appraisalId}/submit`, { appraiserId: "appraiser_jordan", appraisedValueCents: 4800000, notes: "Human-verified vs COA + index." });
-console.log(`   appraiser submitted ${done.appraisal.appraisedDisplay} · anchored ${done.anchor.txRef.slice(0, 16)}…`);
+console.log("=== B. APPRAISER NETWORK (choose appraiser + signed report) ===");
+const apprId = "apr_jordan"; // a real network appraiser
+const req = await post(`/api/athletes/${aid}/appraisal`, { assetId: "ast_jersey1", requestedBy: "fan_buyer", appraiserId: apprId });
+console.log(`   requested → ${req.status} · model-implied ${req.modelImpliedDisplay} · assigned ${req.appraiser?.name} · id ${req.appraisalId.slice(0, 8)}`);
+let queue = await get(`/api/appraisals?appraiserId=${apprId}`);
+console.log(`   ${req.appraiser?.name} sees ${queue.length} in queue`);
+await post(`/api/appraisals/${req.appraisalId}/claim`, { appraiserId: apprId });
+const done = await post(`/api/appraisals/${req.appraisalId}/submit`, { appraiserId: apprId, appraisedValueCents: 4800000, notes: "Human-verified vs COA + index." });
+console.log(`   appraiser SIGNED ${done.appraisal.appraisedDisplay} · sig ${done.signature.value.slice(0, 16)}… · anchored ${done.anchor.txRef.slice(0, 16)}…`);
 
 console.log("=== C. STAKEHOLDER XP (liquidity rewards) wired to xp-service ===");
 const rank = await get(`/api/xp/rank/fan_buyer`);

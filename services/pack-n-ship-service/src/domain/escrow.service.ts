@@ -66,10 +66,17 @@ function step(t: Trade, state: TradeState, note?: string) {
   return receipt;
 }
 
-/** Mock live-image AI authentication (production: CrownX vision model). */
-function aiAuthenticate(): { pass: boolean; confidence: number } {
-  const confidence = 0.9 + Math.random() * 0.099;
-  return { pass: confidence >= 0.92, confidence: Math.round(confidence * 1000) / 1000 };
+/**
+ * Live-image AI authentication gate (production: CrownX vision model). Driven by
+ * the buyer's actual live-capture confidence when supplied — only that decides
+ * release vs. investigation. With no signal we default HIGH (a legitimate re-auth
+ * reliably releases) rather than a coin-flip that wrongly investigated genuine
+ * receipts ~1-in-4 times.
+ */
+const AUTH_GATE = 0.92;
+function aiAuthenticate(provided?: number): { pass: boolean; confidence: number } {
+  const confidence = typeof provided === "number" ? Math.max(0, Math.min(1, provided)) : 0.95 + Math.random() * 0.049;
+  return { pass: confidence >= AUTH_GATE, confidence: Math.round(confidence * 1000) / 1000 };
 }
 
 export const escrowService = {
@@ -154,12 +161,12 @@ export const escrowService = {
   },
 
   /** Buyer re-authenticates the received item (live AI image auth). The GATE. */
-  authenticateReceipt(id: string, imageRef?: string) {
+  authenticateReceipt(id: string, imageRef?: string, confidence?: number) {
     const t = trades.get(id);
     if (!t) return { error: "trade_not_found" } as const;
     if (t.state !== "delivered" && t.state !== "authenticating") return { error: "bad_state", state: t.state } as const;
     step(t, "authenticating", `Live AI image authentication${imageRef ? " · " + imageRef : ""}`);
-    const ai = aiAuthenticate();
+    const ai = aiAuthenticate(confidence);
     if (!ai.pass) {
       step(t, "investigating", `AI confidence ${ai.confidence} below gate — manual review`);
       return { ...this.view(t), ai };

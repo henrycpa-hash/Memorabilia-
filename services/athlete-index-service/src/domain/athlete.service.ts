@@ -205,6 +205,16 @@ function holdingFor(athleteId: string, userId: string) {
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
+/**
+ * Resolve an athlete by internal id OR public slug. Mutation endpoints receive
+ * whatever the caller has — the UI passes the internal id, but the network feed,
+ * COA/vault services, and external integrations pass the slug. Resolving both
+ * here keeps every engine consistent (e.g. athlete-news → signals → price move).
+ */
+function resolveAthlete(idOrSlug: string): Athlete | undefined {
+  return athletes.get(idOrSlug) || [...athletes.values()].find((a) => a.slug === idOrSlug);
+}
+
 /** Effective valuation: base + verified-contract DCF, with live demand elasticity. */
 function indexOf(a: Athlete): AthleteIndex {
   const effective: AthleteSignals = { ...a.signals, royaltyDcfCents: a.signals.royaltyDcfCents + a.contractsDcfCents };
@@ -333,7 +343,7 @@ export const athleteService = {
 
   /** Ingest any data point (signal patch) → recompute → annotated ticker move. */
   ingestSignal(id: string, patch: Partial<AthleteSignals>, event?: { tag: string; label: string; note?: string }) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return null;
     a.signals = { ...a.signals, ...patch, custom: patch.custom ?? a.signals.custom };
     const idx = pushPoint(a, event ? { kind: "signal", tag: event.tag, label: event.label, note: event.note } : undefined);
@@ -341,7 +351,7 @@ export const athleteService = {
   },
 
   buyFractions(id: string, userId: string, shares: number) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const available = a.sharesOutstanding - a.fractionsSold;
     if (shares <= 0 || shares > available) return { error: "insufficient_shares", available } as const;
@@ -361,7 +371,7 @@ export const athleteService = {
 
   /** Sell fractions back — eases demand pressure, easy buy/sell/trade conversion. */
   sellFractions(id: string, userId: string, shares: number) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const h = holdings.find((x) => x.athleteId === id && x.userId === userId);
     if (!h || shares <= 0 || shares > h.shares) return { error: "insufficient_holding", held: h?.shares || 0 } as const;
@@ -376,7 +386,7 @@ export const athleteService = {
   },
 
   holding(id: string, userId: string) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     const h = holdings.find((x) => x.athleteId === id && x.userId === userId);
     if (!a || !h) return { shares: 0, valueCents: 0, costBasisCents: 0 };
     const idx = indexOf(a);
@@ -436,7 +446,7 @@ export const athleteService = {
   /** A resale: athlete earns a tracked, chain-anchored royalty; index reacts;
    *  the new owner joins the asset's Legacy Circle chain. */
   royaltyEvent(id: string, input: { assetId: string; fromUserId: string; toUserId: string; salePriceCents: number }) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const athleteRoyaltyCents = Math.round(input.salePriceCents * ATHLETE_ROYALTY_RATE);
     const ts = nowIso();
@@ -521,7 +531,7 @@ export const athleteService = {
 
   /** Upload a contract — UNVERIFIED until CrownX live-verifies it. */
   uploadContract(id: string, input: { counterparty: string; kind: ContractKind; annualValueCents: number; termYears: number; discountRate?: number; royaltyShare?: number }) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const c: AthleteContract = { id: newId(), athleteId: id, counterparty: input.counterparty, kind: input.kind, annualValueCents: input.annualValueCents, termYears: input.termYears, discountRate: input.discountRate, royaltyShare: input.royaltyShare, verified: false };
     const arr = contracts.get(id) || [];
@@ -533,7 +543,7 @@ export const athleteService = {
 
   /** CrownX live-verify a contract; ONLY then does its DCF enter the index. */
   verifyContract(id: string, contractId: string) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     const c = (contracts.get(id) || []).find((x) => x.id === contractId);
     if (!a || !c) return { error: "not_found" } as const;
     c.verified = true;
@@ -548,7 +558,7 @@ export const athleteService = {
   /* ----------------------------------------------------- Career timeline */
 
   addTimelineEvent(id: string, input: { kind: TimelineEvent["kind"]; title: string; detail?: string; date: string; signalPatch?: Partial<AthleteSignals> }) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const receipt = anchor("athlete.timeline", { athleteId: id, ...input }, nowIso());
     const ev: TimelineEvent = { id: newId(), athleteId: id, kind: input.kind, title: input.title, detail: input.detail, date: input.date, signalPatch: input.signalPatch, anchor: receipt };
@@ -569,7 +579,7 @@ export const athleteService = {
 
   /** Insurance verification: authenticity + current valuation attestation (anchored). */
   insuranceVerify(id: string, assetId: string) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const idx = indexOf(a);
     const payload = { athleteId: id, assetId, valuationCents: idx.marketCapCents, pricePerShareCents: idx.pricePerShareCents, asOf: nowIso() };
@@ -737,7 +747,7 @@ export const athleteService = {
 
   /** Place a limit order; match immediately against the book (price-time priority). */
   placeOrder(id: string, userId: string, side: OrderSide, shares: number, limitPriceCents: number) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     if (shares <= 0 || limitPriceCents <= 0) return { error: "invalid_order" } as const;
     if (side === "sell") {
@@ -805,7 +815,7 @@ export const athleteService = {
 
   /** Top stakeholders for an athlete (most fractional shares) — viral leaderboard. */
   topStakeholders(id: string) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { athleteId: id, holders: [] };
     const idx = indexOf(a);
     return {
@@ -824,7 +834,7 @@ export const athleteService = {
   /** Automated market maker: quote a fresh bid/ask ladder around the index price
    *  so the book always has liquidity. Cancels + prunes the MM's prior quotes. */
   marketMake(id: string) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     // cancel + prune the MM's prior orders for this athlete (bounds memory)
     for (let i = orders.length - 1; i >= 0; i--) {
@@ -854,7 +864,7 @@ export const athleteService = {
 
   /** Real-time, ready-made audit package for auditors / regulators. */
   auditPackage(id: string) {
-    const a = athletes.get(id);
+    const a = resolveAthlete(id);
     if (!a) return { error: "athlete_not_found" } as const;
     const idx = indexOf(a);
     const cs = contracts.get(id) || [];
