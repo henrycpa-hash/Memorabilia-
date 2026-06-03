@@ -96,6 +96,37 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## C16 · Security hardening across all interface layers (DONE)
+
+A platform-wide security + production-hardening pass, with an automated security
+test (`scripts/smoke-security.mjs` — ✅ PASS).
+
+- **Security response headers on every service** (folded into `hardenFastify`, so
+  all 13 services + gateway get them): `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, a deny-everything `Content-Security-Policy`
+  (`default-src 'none'; frame-ancestors 'none'`), `Referrer-Policy: no-referrer`,
+  `Permissions-Policy`, `Strict-Transport-Security`, `Cross-Origin-Resource/Opener-Policy`,
+  and **server-fingerprint stripping** (`X-Powered-By` emptied).
+- **No internal-error leakage**: the error handler now suppresses the exception
+  message on 5xx (returns generic `internal_error`); only 4xx client errors echo
+  a message. Verified no stack/`node_modules`/exception names leak.
+- **Edge rate limiting** (`rateLimit`): in-memory per-IP token bucket on the
+  gateway (default 600/min, `/health` exempt, `trustProxy` for real client IP).
+  Verified: a 660-request burst → 592×200 / **68×429**; `X-RateLimit-*` headers
+  present and decrementing.
+- **CORS tightened** (`corsOrigin`): credentials disabled (the API uses Bearer
+  tokens, not cookies); strict env allow-list via `CROWNX_CORS_ORIGINS`
+  (reflects origin only when unset, for dev).
+- **JWT secret enforced**: the gateway **refuses to start in production** without
+  `JWT_SECRET` (warns in dev); explicit request `bodyLimit` (oversized-payload /
+  DoS defence).
+- **Next.js apps**: security headers (`nosniff`, `Referrer-Policy`,
+  `Permissions-Policy`, HSTS, DNS-prefetch-off) added to every app via
+  `next.config.mjs headers()`.
+- New env documented in `.env.example`. Full regression green (terms, ai-modeling,
+  royalty-vault, coa-artifact, appraiser-network, hardening, feed; 12/12 up);
+  typecheck clean.
+
 ## C15 · Terms & Agreements — transparent, signed, governed on-chain (DONE)
 
 - **`terms-service :4083`**: a versioned, chain-anchored registry of every CrownX

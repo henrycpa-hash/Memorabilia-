@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { hardenFastify } from "@crownx-jewel/shared-kernel";
+import { hardenFastify, rateLimit, corsOrigin } from "@crownx-jewel/shared-kernel";
 import jwt from "@fastify/jwt";
 import { registerHealthRoutes } from "./routes/health";
 import { registerIdentityRoutes } from "./routes/identity";
@@ -85,9 +85,21 @@ import { registerSovereigntyIncidentGatewayRoutes } from "./routes/sovereignty-i
 import { registerCrownxRoutes } from "./routes/crownx";
 
 export async function buildGateway() {
-  const app = Fastify({ logger: true });
-  await app.register(cors, { origin: true });
-  await app.register(jwt, { secret: process.env.JWT_SECRET || "dev-secret" });
+  // bodyLimit caps request size (DoS / oversized-payload defence); trustProxy so
+  // per-IP rate limiting sees the real client behind a load balancer.
+  const app = Fastify({ logger: true, bodyLimit: Number(process.env.GATEWAY_BODY_LIMIT || 1_048_576), trustProxy: true });
+
+  // a hardcoded JWT secret in production is a critical vuln — refuse to start
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret && process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET must be set in production (refusing to start with a default secret)");
+  }
+  if (!jwtSecret) console.warn("[gateway] JWT_SECRET not set — using a dev secret. Set JWT_SECRET in production.");
+
+  await app.register(cors, { origin: corsOrigin(), credentials: false, methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], maxAge: 600 });
+  await app.register(jwt, { secret: jwtSecret || "dev-secret-not-for-production" });
+  // edge throttle — abuse/brute-force protection (generous; /health exempt)
+  rateLimit(app);
 
   // Wave 1
   registerHealthRoutes(app);
