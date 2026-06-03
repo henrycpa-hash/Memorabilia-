@@ -105,6 +105,11 @@ const orders: Order[] = [];
 const fills: Fill[] = [];
 const lastTradePrice = new Map<string, number>(); // athleteId -> last fill price
 
+/** stakeholder royalty dividends: a slice of each resale royalty flows pro-rata
+ *  to fractional holders — owning a piece of the athlete is a royalty stream. */
+const HOLDER_DIVIDEND_RATE = 0.25; // 25% of the athlete royalty shared with holders
+const dividends = new Map<string, number>(); // userId -> total dividend cents earned
+
 /* ----- appraiser human-in-the-loop queue ----- */
 export interface Appraisal {
   id: string;
@@ -316,6 +321,55 @@ export const athleteService = {
     return { shares: h.shares, costBasisCents: h.costBasisCents, valueCents, valueDisplay: formatUsdCents(valueCents), unrealizedCents: valueCents - h.costBasisCents };
   },
 
+  /** A fan's wealth across all athlete holdings: P&L + royalty income + projected stream. */
+  portfolio(userId: string) {
+    const PROJECTED_YIELD = 0.06;
+    const positions = holdings
+      .filter((h) => h.userId === userId && h.shares > 0)
+      .map((h) => {
+        const a = athletes.get(h.athleteId);
+        const idx = a ? indexOf(a) : null;
+        const valueCents = idx ? h.shares * idx.pricePerShareCents : 0;
+        return {
+          athleteId: h.athleteId,
+          slug: a?.slug,
+          name: a?.name || h.athleteId,
+          sport: a?.sport,
+          shares: h.shares,
+          costBasisCents: h.costBasisCents,
+          valueCents,
+          unrealizedCents: valueCents - h.costBasisCents,
+          valueDisplay: formatUsdCents(valueCents),
+          unrealizedDisplay: formatUsdCents(valueCents - h.costBasisCents)
+        };
+      })
+      .sort((x, y) => y.valueCents - x.valueCents);
+
+    const holdingsValueCents = positions.reduce((s, p) => s + p.valueCents, 0);
+    const costBasisCents = positions.reduce((s, p) => s + p.costBasisCents, 0);
+    const unrealizedCents = holdingsValueCents - costBasisCents;
+    const royaltyDividendsCents = dividends.get(userId) || 0;
+    const projectedAnnualRoyaltyCents = Math.round(holdingsValueCents * PROJECTED_YIELD) + Math.round(royaltyDividendsCents * 4);
+    const netWorthCents = holdingsValueCents + royaltyDividendsCents;
+    return {
+      userId,
+      positions,
+      holdingsValueCents,
+      costBasisCents,
+      unrealizedCents,
+      royaltyDividendsCents,
+      projectedAnnualRoyaltyCents,
+      netWorthCents,
+      display: {
+        netWorth: formatUsdCents(netWorthCents),
+        holdingsValue: formatUsdCents(holdingsValueCents),
+        unrealized: formatUsdCents(unrealizedCents),
+        royaltyDividends: formatUsdCents(royaltyDividendsCents),
+        projectedAnnualRoyalty: formatUsdCents(projectedAnnualRoyaltyCents)
+      }
+    };
+  },
+
   /** A resale: athlete earns a tracked, chain-anchored royalty; index reacts;
    *  the new owner joins the asset's Legacy Circle chain. */
   royaltyEvent(id: string, input: { assetId: string; fromUserId: string; toUserId: string; salePriceCents: number }) {
@@ -326,6 +380,17 @@ export const athleteService = {
     const receipt = anchor("athlete.royalty", { athleteId: id, ...input, athleteRoyaltyCents, ts }, ts);
     const ev: RoyaltyEvent = { id: newId(), athleteId: id, assetId: input.assetId, fromUserId: input.fromUserId, toUserId: input.toUserId, salePriceCents: input.salePriceCents, athleteRoyaltyCents, chainTxRef: receipt.txRef, anchor: receipt, ts };
     royaltyEvents.push(ev);
+
+    // stakeholder dividend: share a slice of the royalty pro-rata with fractional holders
+    const holderPool = Math.round(athleteRoyaltyCents * HOLDER_DIVIDEND_RATE);
+    const heldShares = holdings.filter((h) => h.athleteId === id && h.shares > 0);
+    const totalHeld = heldShares.reduce((s, h) => s + h.shares, 0);
+    if (totalHeld > 0 && holderPool > 0) {
+      for (const h of heldShares) {
+        const cut = Math.round((holderPool * h.shares) / totalHeld);
+        dividends.set(h.userId, (dividends.get(h.userId) || 0) + cut);
+      }
+    }
 
     // best-effort settlement record (escrow/payout to the athlete)
     const settlementBase = process.env.SETTLEMENT_SERVICE_URL || "http://localhost:4015";

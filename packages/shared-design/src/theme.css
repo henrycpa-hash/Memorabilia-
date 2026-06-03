@@ -73,6 +73,28 @@ body.cx-app {
   background-attachment: fixed;
 }
 
+/* premium top accent — a fixed cyan→gold hairline (billion-dollar feel) */
+body.cx-app::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 99991;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--cx-cyan) 18%,
+    var(--cx-cyan-hi) 38%,
+    var(--cx-gold-hi) 62%,
+    var(--cx-gold) 82%,
+    transparent
+  );
+  opacity: 0.85;
+}
+
 /* fine film grain — matches the reference's overlay */
 body.cx-app::before {
   content: "";

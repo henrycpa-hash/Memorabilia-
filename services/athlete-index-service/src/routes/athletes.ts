@@ -148,6 +148,12 @@ export function registerAthleteRoutes(app: FastifyInstance) {
     return athleteService.topStakeholders(id);
   });
 
+  // a fan's wealth across all athlete holdings (P&L + royalty stream)
+  app.get("/portfolio/:userId", async (request) => {
+    const { userId } = request.params as { userId: string };
+    return athleteService.portfolio(userId);
+  });
+
   // ---- appraiser human-in-the-loop queue ----
   app.get("/appraisals", async (request) => {
     const { status } = request.query as { status?: Appraisal["status"] };

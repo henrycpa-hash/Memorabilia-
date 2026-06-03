@@ -120,6 +120,25 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
   gateway. NOTE: the api-gateway preview can hang after many hot-reloads under
   heavy process load — stop+start it (preview) to recover; the proxies are fine.
 
+## C4 · Wealth daily-loop, hardening & demo users (DONE)
+
+- **Wealth daily-loop** (`/wealth`): net-worth hero, daily check-in streak (→XP),
+  athlete portfolio with P&L, royalty income + projected-annual-royalty stream,
+  and a three-move daily loop geared toward building wealth + royalty streams.
+- **Royalty dividends**: a 25% slice of each resale royalty is distributed
+  pro-rata to fractional holders — owning a piece of an athlete is a live royalty
+  stream (verified: a seeded user earned **$236 royalty income** from holdings).
+- **`portfolio(userId)`** endpoint: holdings P&L, cost basis, unrealized, royalty
+  income, projected yield, net worth. Gateway proxy `/api/portfolio/:userId`.
+- **Production hardening**: resilient gateway proxies (AbortController timeout →
+  `503 upstream_unavailable` instead of hanging/crashing), aggregate
+  `/api/health` readiness across all 5 CrownX services, input validation/clamps.
+- **Demo users**: `node scripts/seed-demo-users.mjs` → henry/raul/eric@crownx.ai
+  (password `CrownXDemo!2026`) with slabs, XP, athlete holdings, and royalties.
+- **Design**: premium fixed cyan→gold top-accent hairline across every app.
+- **QA**: all 15 CrownX packages/services/apps typecheck clean; round-6/round-7
+  regression smokes pass; aggregate health green.
+
 ## C3 · Settlement, contracts, escrow, audit, on-chain (DONE)
 
 - **`@crownx-jewel/shared-chain`** — pluggable on-chain anchoring adapter

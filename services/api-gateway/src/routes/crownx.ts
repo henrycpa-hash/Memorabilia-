@@ -33,11 +33,47 @@ export function registerCrownxRoutes(app: FastifyInstance) {
     return { accessToken, user: { email: user.email } };
   }
 
+  // ---- aggregate readiness: ping each CrownX revamp service ----
+  app.get("/api/health", async (_req, reply) => {
+    const targets: Record<string, string> = {
+      xp: process.env.XP_SERVICE_URL || "http://localhost:4073",
+      attribution: process.env.ATTRIBUTION_SERVICE_URL || "http://localhost:4074",
+      passkey: process.env.PASSKEY_SERVICE_URL || "http://localhost:4075",
+      athleteIndex: process.env.ATHLETE_INDEX_SERVICE_URL || "http://localhost:4076",
+      packNShip: process.env.PACK_N_SHIP_SERVICE_URL || "http://localhost:4077"
+    };
+    const checks = await Promise.all(
+      Object.entries(targets).map(async ([name, base]) => {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 2500);
+        try {
+          const r = await fetch(`${base}/health`, { signal: ctrl.signal });
+          return [name, r.ok ? "up" : "degraded"] as const;
+        } catch {
+          return [name, "down"] as const;
+        } finally {
+          clearTimeout(t);
+        }
+      })
+    );
+    const services = Object.fromEntries(checks);
+    const ok = Object.values(services).every((s) => s === "up");
+    reply.code(ok ? 200 : 503).send({ ok, gateway: "up", services, ts: new Date().toISOString() });
+  });
+
   // ---- WebAuthn / FIDO2 passkey (real verification via passkey-service) ----
   const passkeyBase = () => process.env.PASSKEY_SERVICE_URL || "http://localhost:4075";
   async function pk(path: string, body: unknown): Promise<{ status: number; json: { verified?: boolean; userId?: string; email?: string; [k: string]: unknown } }> {
-    const res = await fetch(`${passkeyBase()}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
-    return { status: res.status, json: await res.json().catch(() => ({})) };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), Number(process.env.GATEWAY_PROXY_TIMEOUT_MS || 8000));
+    try {
+      const res = await fetch(`${passkeyBase()}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}), signal: ctrl.signal });
+      return { status: res.status, json: await res.json().catch(() => ({})) };
+    } catch {
+      return { status: 503, json: { error: "upstream_unavailable" } };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   app.post("/api/auth/passkey/register/options", async (request, reply) => {
@@ -151,12 +187,22 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   const attrBase = () => process.env.ATTRIBUTION_SERVICE_URL || "http://localhost:4074";
 
   async function proxy(method: "GET" | "POST", url: string, body?: unknown) {
-    const res = await fetch(url, {
-      method,
-      headers: method === "POST" ? { "content-type": "application/json" } : undefined,
-      body: method === "POST" ? JSON.stringify(body ?? {}) : undefined
-    });
-    return { status: res.status, text: await res.text(), ctype: res.headers.get("content-type") || "application/json" };
+    // resilient: time out and degrade to 503 rather than hanging/crashing the gateway
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), Number(process.env.GATEWAY_PROXY_TIMEOUT_MS || 8000));
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: method === "POST" ? { "content-type": "application/json" } : undefined,
+        body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
+        signal: ctrl.signal
+      });
+      return { status: res.status, text: await res.text(), ctype: res.headers.get("content-type") || "application/json" };
+    } catch {
+      return { status: 503, text: JSON.stringify({ error: "upstream_unavailable" }), ctype: "application/json" };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   app.get("/api/xp/economy", async (_req, reply) => { const r = await proxy("GET", `${xpBase()}/xp/economy`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
@@ -206,6 +252,7 @@ export function registerCrownxRoutes(app: FastifyInstance) {
   app.get("/api/athletes/:id/orders/:userId", async (request, reply) => { const { id, userId } = request.params as { id: string; userId: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/orders/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.post("/api/athletes/:id/orders/:orderId/cancel", async (request, reply) => { const { id, orderId } = request.params as { id: string; orderId: string }; const r = await proxy("POST", `${athBase()}/athletes/${id}/orders/${orderId}/cancel`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.get("/api/athletes/:id/top-stakeholders", async (request, reply) => { const { id } = request.params as { id: string }; const r = await proxy("GET", `${athBase()}/athletes/${id}/top-stakeholders`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
+  app.get("/api/portfolio/:userId", async (request, reply) => { const { userId } = request.params as { userId: string }; const r = await proxy("GET", `${athBase()}/portfolio/${userId}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   // appraiser human-in-the-loop queue
   app.get("/api/appraisals", async (request, reply) => { const { status } = request.query as { status?: string }; const r = await proxy("GET", `${athBase()}/appraisals${status ? `?status=${status}` : ""}`); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
   app.post("/api/appraisals/:appraisalId/claim", async (request, reply) => { const { appraisalId } = request.params as { appraisalId: string }; const r = await proxy("POST", `${athBase()}/appraisals/${appraisalId}/claim`, request.body); reply.code(r.status).header("content-type", r.ctype).send(r.text); });
