@@ -1,6 +1,6 @@
 {
   "name": "crownx-jewel",
-  "version": "0.11.0",
+  "version": "1.1.0",
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "workspaces": ["apps/*", "services/*", "packages/*"],
@@ -9,6 +9,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "test": "node --test --test-reporter spec \"tests/**/*.test.ts\"",
     "compose:up": "docker compose -f infra/compose/docker-compose.yml up --build",
     "compose:down": "docker compose -f infra/compose/docker-compose.yml down -v",
     "db:migrate:identity": "psql $IDENTITY_DB_URL -f infra/migrations/identity/0001_initial.sql",

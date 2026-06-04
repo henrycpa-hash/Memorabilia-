@@ -96,6 +96,27 @@ to a dedicated `xp-service` / `passkey-service` is the documented next step.
 
 ---
 
+## v1.1.0 — milestone underway
+
+GitHub milestone **v1.1.0** (`/milestone/1`) seeded with 9 issues: durable
+persistence, CI, real L2 anchoring, Reserve Vault + ISO 20022 codex,
+royalty-backed securities, quantum/PQC modules, test coverage, production deploy,
+native AR companion.
+
+### M1 · Unit tests + CI (issues #7, #2) (DONE)
+- **Unit tests** for the pure math packages — `tests/*.test.ts` run with Node 24's
+  native TS type-stripping (`node --test`): shared-royalty (10% rate, split
+  invariants, settle), shared-datadividend (weighted rate, 3%→5% cap, pro-rata
+  distribution, guards), shared-coa (dual-pane build, NaN-clamp, owner-gated
+  unlock, transfer re-seal), shared-valuation (DCF floor, brand signals,
+  elasticity). **18/18 pass** via `pnpm test`.
+- **CI** (`.github/workflows/ci.yml`): on push/PR — job 1 typecheck (all
+  packages/apps/services) + unit tests; job 2 boots the 11 core engines + gateway
+  and runs the full smoke + security suite (`scripts/ci-smoke.sh`). pnpm cached,
+  concurrency-cancel.
+- Committed the **pnpm-lock.yaml** (was gitignored) for reproducible
+  `--frozen-lockfile` installs. Root version bumped to 1.1.0.
+
 ## C16 · Security hardening across all interface layers (DONE)
 
 A platform-wide security + production-hardening pass, with an automated security
