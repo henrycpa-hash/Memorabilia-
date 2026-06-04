@@ -279,6 +279,28 @@ function FallbackForm({ onSuccess }: { onSuccess: (r: AuthResult) => void }) {
         {pending ? "…" : mode === "login" ? "Log in" : "Create my Vault"}
       </button>
       {msg && <div style={{ fontFamily: font.mono, fontSize: 11, color: color.hot }}>{msg}</div>}
+      {/* demo-account helper — passkeys can't run in a sandboxed preview, so this
+          gives a one-tap email/password sign-in for the seeded demo users */}
+      <div style={{ fontFamily: font.mono, fontSize: 10, color: color.mut2, lineHeight: 1.7, marginTop: 4 }}>
+        Demo accounts: <span style={{ color: color.cyanHi }}>henry@crownx.ai</span> · raul@crownx.ai · eric@crownx.ai
+        <br />Password: <span style={{ color: color.cyanHi }}>CrownXDemo!2026</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            const f = (e.currentTarget.closest("form") as HTMLFormElement | null);
+            if (f) {
+              const em = f.elements.namedItem("email") as HTMLInputElement | null;
+              const pw = f.elements.namedItem("password") as HTMLInputElement | null;
+              if (em) em.value = "henry@crownx.ai";
+              if (pw) pw.value = "CrownXDemo!2026";
+            }
+            setMode("login");
+          }}
+          style={{ display: "block", marginTop: 6, ...buttonStyle("secondary"), fontSize: 11, padding: "7px 12px" }}
+        >
+          ⚡ Fill demo account (henry)
+        </button>
+      </div>
     </form>
   );
 }
