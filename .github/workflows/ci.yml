@@ -19,11 +19,11 @@ jobs:
       - run: pnpm test
 
   smoke:
-    name: engine smoke + security (informational)
+    name: engine smoke + security
     runs-on: ubuntu-latest
-    # supplementary: boots 11 engines + gateway and runs the smoke/security
-    # suites. Non-blocking while it is being hardened for CI (v1.1.0 #2).
-    continue-on-error: true
+    # boots identity-service + the 11 CrownX engines + gateway and runs the full
+    # smoke/security suite end-to-end through the gateway (v1.1.0 #2 — now a
+    # blocking gate; proven green on ubuntu in run #11).
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
