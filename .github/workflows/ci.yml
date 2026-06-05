@@ -1,59 +1,30 @@
 name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-# cancel superseded runs on the same ref
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+on: [push, pull_request]
 
 jobs:
   build-test:
     name: typecheck + unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Typecheck (all packages, apps, services)
-        run: pnpm typecheck
-
-      - name: Unit tests (shared math: royalty, data-dividend, COA, valuation)
-        run: pnpm test
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
 
   smoke:
-    name: engine smoke + security tests
+    name: engine smoke + security
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Boot core engines + gateway, run smoke + security suites
-        run: bash scripts/ci-smoke.sh
+      - run: pnpm install --frozen-lockfile
+      - run: bash scripts/ci-smoke.sh
