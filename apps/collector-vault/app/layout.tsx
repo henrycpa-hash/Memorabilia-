@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import "@crownx-jewel/shared-design/theme.css";
-import { AppShell, ButtonLink } from "@crownx-jewel/shared-design";
+import { AppShell } from "@crownx-jewel/shared-design";
+import { AuthAction } from "./_components/AuthAction";
 
 export const metadata = {
   title: "CrownX Vault — Own the moment. Earn from it forever.",
@@ -35,11 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           brandSub="Vault"
           nav={NAV}
           LinkComponent={Link}
-          actions={
-            <ButtonLink href="/login" as={Link} variant="primary" style={{ padding: "9px 16px", fontSize: 13 }}>
-              Sign in
-            </ButtonLink>
-          }
+          actions={<AuthAction />}
         >
           {children}
         </AppShell>

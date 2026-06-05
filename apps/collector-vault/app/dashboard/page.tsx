@@ -1,5 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { authedGet, publicGet, currentUserId } from "../../lib/api";
+import { clientSession, clientAuthedGet, clientPublicGet } from "../../lib/clientAuth";
 import { LiveFloor } from "../_components/LiveFloor";
 import {
   Panel,
@@ -27,17 +30,41 @@ const SAMPLE_FEED: FeedEvent[] = [
   { id: "f4", actor: "floor_watch", kind: "floor", text: "the Vault Floor Index crossed a new high", meta: "34m ago" }
 ];
 
-export default async function DashboardPage() {
-  const uid = await currentUserId();
-  const [vault, notifications, leaderboard, athletes, wealth] = await Promise.all([
-    authedGet<Asset[]>("/api/vault/me"),
-    authedGet<Notification[]>("/api/notifications/me"),
-    publicGet<LeaderRow[]>("/api/xp/leaderboard?limit=5"),
-    publicGet<AthleteRow[]>("/api/athletes"),
-    uid ? publicGet<Wealth>(`/api/portfolio/${uid}`) : Promise.resolve(null)
-  ]);
+export default function DashboardPage() {
+  const [ready, setReady] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [vault, setVault] = useState<Asset[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
+  const [athletes, setAthletes] = useState<AthleteRow[]>([]);
+  const [wealth, setWealth] = useState<Wealth | null>(null);
 
-  if (vault === null) {
+  useEffect(() => {
+    const s = clientSession();
+    if (!s) {
+      setSignedIn(false);
+      setReady(true);
+      return;
+    }
+    setSignedIn(true);
+    Promise.all([
+      clientAuthedGet<Asset[]>("/api/vault/me"),
+      clientAuthedGet<Notification[]>("/api/notifications/me"),
+      clientPublicGet<LeaderRow[]>("/api/xp/leaderboard?limit=5"),
+      clientPublicGet<AthleteRow[]>("/api/athletes"),
+      clientPublicGet<Wealth>(`/api/portfolio/${s.sub}`)
+    ]).then(([v, n, l, a, w]) => {
+      // an authed call returning null with a valid token means "no data yet", not "signed out"
+      setVault(v || []);
+      setNotifications(n || []);
+      setLeaderboard(l || []);
+      setAthletes(a || []);
+      setWealth(w);
+      setReady(true);
+    });
+  }, []);
+
+  if (ready && !signedIn) {
     return (
       <section>
         <SectionTag>Vault Dashboard</SectionTag>

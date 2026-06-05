@@ -1,5 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { authedGet } from "../../lib/api";
+import { clientSession, clientAuthedGet } from "../../lib/clientAuth";
 import { SectionTag, Panel, Badge, ButtonLink, color, font } from "@crownx-jewel/shared-design";
 
 type Notification = {
@@ -11,10 +14,26 @@ type Notification = {
   createdAt: string;
 };
 
-export default async function NotificationsPage() {
-  const list = await authedGet<Notification[]>("/api/notifications/me");
+export default function NotificationsPage() {
+  const [ready, setReady] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [list, setList] = useState<Notification[]>([]);
 
-  if (list === null) {
+  useEffect(() => {
+    const s = clientSession();
+    if (!s) {
+      setSignedIn(false);
+      setReady(true);
+      return;
+    }
+    setSignedIn(true);
+    clientAuthedGet<Notification[]>("/api/notifications/me").then((n) => {
+      setList(n || []);
+      setReady(true);
+    });
+  }, []);
+
+  if (ready && !signedIn) {
     return (
       <section>
         <SectionTag>Activity</SectionTag>
@@ -56,7 +75,7 @@ export default async function NotificationsPage() {
             </Panel>
           );
         })}
-        {list.length === 0 && (
+        {ready && list.length === 0 && (
           <Panel>
             <p style={{ color: color.mut, margin: 0 }}>No activity yet. Your first mint will light this up.</p>
           </Panel>

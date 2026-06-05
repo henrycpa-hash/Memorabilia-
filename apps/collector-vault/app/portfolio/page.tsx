@@ -1,5 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { authedGet } from "../../lib/api";
+import { clientSession, clientAuthedGet } from "../../lib/clientAuth";
 import { MintReveal } from "../_components/MintReveal";
 import { SlabCard, SectionTag, Panel, ButtonLink, Badge, color, font } from "@crownx-jewel/shared-design";
 
@@ -21,10 +24,26 @@ function floorFor(id: string) {
   return { floor: `${floor.toLocaleString()}`, change: `${change >= 0 ? "+" : ""}${change.toFixed(1)}%` };
 }
 
-export default async function PortfolioPage() {
-  const vault = await authedGet<Asset[]>("/api/vault/me");
+export default function PortfolioPage() {
+  const [ready, setReady] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [vault, setVault] = useState<Asset[]>([]);
 
-  if (vault === null) {
+  useEffect(() => {
+    const s = clientSession();
+    if (!s) {
+      setSignedIn(false);
+      setReady(true);
+      return;
+    }
+    setSignedIn(true);
+    clientAuthedGet<Asset[]>("/api/vault/me").then((v) => {
+      setVault(v || []);
+      setReady(true);
+    });
+  }, []);
+
+  if (ready && !signedIn) {
     return (
       <section>
         <SectionTag>Your Vault</SectionTag>
@@ -52,7 +71,7 @@ export default async function PortfolioPage() {
         <MintReveal />
       </div>
 
-      {vault.length === 0 ? (
+      {ready && vault.length === 0 ? (
         <Panel style={{ marginTop: 16 }}>
           <p style={{ color: color.mut, margin: 0 }}>
             You don&apos;t own any collectibles yet. Claim a founder slab to begin your /LV99 ascent.
