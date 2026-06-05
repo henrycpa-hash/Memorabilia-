@@ -7,8 +7,13 @@ cd "$(dirname "$0")/.."
 # generous rate limit so the full suite never self-throttles in CI
 export RATE_LIMIT_MAX=100000
 export JWT_SECRET="ci-test-secret-not-for-production"
+# CI is ephemeral: don't read/write durable snapshots (deterministic, clean runs).
+# identity-service still boot-seeds the demo users in-memory, so auth smokes pass.
+export CROWNX_PERSIST=off
 
-CORE=(xp-service attribution-service passkey-service athlete-index-service \
+# identity-service (:4001) backs /api/register + /api/login — the auth smoke and
+# the demo seed need it, so it must boot alongside the 11 CrownX engines.
+CORE=(identity-service xp-service attribution-service passkey-service athlete-index-service \
   pack-n-ship-service authentication-engine-service network-feed-service \
   royalty-vault-service coa-artifact-service ai-modeling-service terms-service api-gateway)
 

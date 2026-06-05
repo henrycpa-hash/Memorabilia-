@@ -7,3 +7,9 @@ dist
 .env.local
 .DS_Store
 coverage
+
+# durable in-memory snapshots (runtime state, never commit)
+.crownx-data/
+
+# TS incremental build cache
+*.tsbuildinfo

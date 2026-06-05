@@ -1,4 +1,4 @@
-import { newId, nowIso } from "@crownx-jewel/shared-kernel";
+import { newId, nowIso, persistSnapshot, mapToEntries, entriesToMap, fillArray } from "@crownx-jewel/shared-kernel";
 import { anchor } from "@crownx-jewel/shared-chain";
 import {
   buildGenesisCoa,
@@ -73,6 +73,12 @@ function seed() {
   }
 }
 seed();
+
+persistSnapshot({
+  name: "coa-artifact-service",
+  dump: () => ({ artifacts: mapToEntries(artifacts), byToken: mapToEntries(byToken), xrSessions, unlockLog }),
+  load: (d) => { entriesToMap(d.artifacts, artifacts); entriesToMap(d.byToken, byToken); fillArray(d.xrSessions, xrSessions); fillArray(d.unlockLog, unlockLog); }
+});
 
 export const coaArtifactStore = {
   /** Issue (or replace) a Genesis COA artifact — called by the minting engine. */

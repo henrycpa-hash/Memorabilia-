@@ -110,3 +110,39 @@ export const userService = {
     return u ? strip(u) : null;
   }
 };
+
+/**
+ * Boot-seed the CrownX demo accounts so sign-in ALWAYS works — on a fresh
+ * deploy (empty snapshot) or in CI (CROWNX_PERSIST=off). Idempotent: skips any
+ * account that already exists (restored from the durable snapshot or seeded
+ * earlier). Runs once at module load, after the repo has hydrated its snapshot.
+ */
+const DEMO_USERS: { email: string; displayName: string; role: UserRole }[] = [
+  { email: "henry@crownx.ai", displayName: "Henry", role: "creator" },
+  { email: "raul@crownx.ai", displayName: "Raul", role: "creator" },
+  { email: "eric@crownx.ai", displayName: "Eric", role: "creator" }
+];
+
+export async function seedDemoUsers(): Promise<void> {
+  if (process.env.CROWNX_SEED_DEMO === "off") return;
+  const password = process.env.CROWNX_DEMO_PASSWORD || "CrownXDemo!2026";
+  for (const d of DEMO_USERS) {
+    if (userRepo.findByEmail(d.email)) continue; // already present (snapshot or prior boot)
+    try {
+      const passwordHash = await hashPassword(password);
+      userRepo.insert({
+        id: newId(),
+        email: d.email,
+        displayName: d.displayName,
+        role: d.role,
+        createdAt: nowIso(),
+        passwordHash
+      });
+    } catch {
+      /* best-effort — never block boot on seeding */
+    }
+  }
+}
+
+// fire-and-forget; the snapshot has already loaded synchronously by now
+void seedDemoUsers();

@@ -1,4 +1,4 @@
-import { newId, nowIso } from "@crownx-jewel/shared-kernel";
+import { newId, nowIso, persistSnapshot, mapToEntries, entriesToMap, fillArray } from "@crownx-jewel/shared-kernel";
 import { anchor } from "@crownx-jewel/shared-chain";
 import {
   computeDataWeight,
@@ -133,6 +133,17 @@ function recordRevenue(input: { source: string; cents: number }) {
 }
 
 seed();
+
+persistSnapshot({
+  name: "ai-modeling-service",
+  dump: () => ({ consents: mapToEntries(consents), tokens, modelUpdates, revenue, epochs, balances: mapToEntries(balances), boardAllocBps, revenueConsumedCents }),
+  load: (d) => {
+    entriesToMap(d.consents, consents); fillArray(d.tokens, tokens); fillArray(d.modelUpdates, modelUpdates);
+    fillArray(d.revenue, revenue); fillArray(d.epochs, epochs); entriesToMap(d.balances, balances);
+    if (typeof d.boardAllocBps === "number") boardAllocBps = d.boardAllocBps;
+    if (typeof d.revenueConsumedCents === "number") revenueConsumedCents = d.revenueConsumedCents;
+  }
+});
 
 export const aiModeling = {
   /* ---- sovereignty data consent ---- */

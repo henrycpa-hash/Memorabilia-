@@ -67,7 +67,23 @@ export async function registerWithPassword(email: string, displayName: string, p
   return postJson<AuthResult>("/api/register", { email, displayName, password, role: "fan" });
 }
 
-/** Wave 2 dev session: token in a readable cookie so SSR pages can call the gateway. */
+/**
+ * Persist the session token in the cx_access cookie so BOTH client pages
+ * (document.cookie) and SSR pages (next/headers cookies()) can read it.
+ *
+ * In a cross-site iframe (e.g. the hosted preview over HTTPS) a SameSite=Lax
+ * cookie is readable client-side but is NOT sent on the server-render request —
+ * which is why some screens stayed "logged in" and gated SSR screens didn't.
+ * On HTTPS we use SameSite=None; Secure so the cookie is sent in the embedded
+ * context; on plain http://localhost we keep Lax (None+Secure is rejected there).
+ */
 export function persistSession(token: string) {
-  document.cookie = `cx_access=${token}; path=/; max-age=3600; samesite=lax`;
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:";
+  const attrs = secure ? "SameSite=None; Secure" : "SameSite=Lax";
+  document.cookie = `cx_access=${token}; path=/; max-age=3600; ${attrs}`;
+}
+
+/** Clear the session cookie (sign out). */
+export function clearSession() {
+  document.cookie = "cx_access=; path=/; max-age=0; SameSite=Lax";
 }

@@ -60,7 +60,13 @@ export async function verifyAthlete(email: string, displayName: string): Promise
   }
 }
 
-/** Dev session cookie so SSR pages can call the gateway with the athlete's JWT. */
+/**
+ * Persist the session cookie so both client and SSR pages read it. On HTTPS
+ * (cross-site preview iframe) use SameSite=None; Secure so the cookie is sent on
+ * the server-render request; on http://localhost keep Lax.
+ */
 export function persistSession(token: string) {
-  document.cookie = `cx_access=${token}; path=/; max-age=3600; samesite=lax`;
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:";
+  const attrs = secure ? "SameSite=None; Secure" : "SameSite=Lax";
+  document.cookie = `cx_access=${token}; path=/; max-age=3600; ${attrs}`;
 }

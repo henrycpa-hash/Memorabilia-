@@ -2,9 +2,10 @@ import { buildIdentityApp } from "./app";
 
 async function main() {
   const app = await buildIdentityApp();
-  await app.listen({ host: "0.0.0.0", port: 4001 });
+  const port = Number(process.env.PORT || process.env.IDENTITY_PORT || 4001);
+  await app.listen({ host: "0.0.0.0", port });
   // eslint-disable-next-line no-console
-  console.log("identity-service listening on 4001");
+  console.log(`identity-service listening on ${port}`);
 }
 
 main().catch((err) => {

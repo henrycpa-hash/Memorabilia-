@@ -1,4 +1,4 @@
-import { newId, nowIso } from "@crownx-jewel/shared-kernel";
+import { newId, nowIso, persistSnapshot, mapToEntries, entriesToMap, fillArray } from "@crownx-jewel/shared-kernel";
 import { anchor } from "@crownx-jewel/shared-chain";
 
 /**
@@ -101,6 +101,12 @@ function seed() {
   ], 1);
 }
 seed();
+
+persistSnapshot({
+  name: "terms-service",
+  dump: () => ({ agreements: mapToEntries(agreements), acceptances, amendments }),
+  load: (d) => { entriesToMap(d.agreements, agreements); fillArray(d.acceptances, acceptances); fillArray(d.amendments, amendments); }
+});
 
 function activeVersion(ag: Agreement): AgreementVersion {
   return ag.versions.find((v) => v.status === "active") || ag.versions[ag.versions.length - 1];

@@ -1,8 +1,17 @@
 import type { User, UserRole } from "@crownx-jewel/contracts";
+import { persistSnapshot, fillArray } from "@crownx-jewel/shared-kernel";
 
 export type StoredUser = User & { passwordHash?: string };
 
 const store: StoredUser[] = [];
+
+// durable accounts: a restart no longer logs everyone out (the demo users +
+// any registrations survive). Disable with CROWNX_PERSIST=off.
+persistSnapshot({
+  name: "identity-service",
+  dump: () => ({ users: store }),
+  load: (d) => fillArray(d.users, store)
+});
 
 export const userRepo = {
   insert(user: StoredUser) {

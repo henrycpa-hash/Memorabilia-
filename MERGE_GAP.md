@@ -117,6 +117,32 @@ native AR companion.
 - Committed the **pnpm-lock.yaml** (was gitignored) for reproducible
   `--frozen-lockfile` installs. Root version bumped to 1.1.0.
 
+### M2 · Durable persistence + login durability + smoke hardening (issues #1, #2) (DONE)
+- **`@crownx-jewel/shared-kernel/persist`** — a tiny durable-snapshot layer for the
+  in-memory engines. `persistSnapshot({name, dump, load})` loads a JSON snapshot on
+  boot (snapshot **wins over** the seed), then autosaves on a 4s cadence and flushes
+  on `beforeExit`/`SIGINT`/`SIGTERM`; unchanged states skip the write. Maps survive
+  via `mapToEntries`/`entriesToMap`; arrays via `fillArray`. Disable with
+  `CROWNX_PERSIST=off` (CI/ephemeral). Snapshots live in `CROWNX_DATA_DIR`
+  (default `.crownx-data/`, gitignored). **5 new unit tests** (round-trip, load-over-seed,
+  no-op when off) — total **23/23 pass**.
+- **Wired** into the stateful engines: `identity-service` (accounts + password
+  hashes → **login survives restarts**), `royalty-vault-service`, `coa-artifact-service`,
+  `ai-modeling-service`, `terms-service`.
+- **Login durability** — root cause of "some screens say sign-in, others don't":
+  the `cx_access` cookie was `SameSite=Lax`, so it wasn't sent on SSR requests inside
+  the cross-site preview iframe (client pages read `document.cookie`, SSR pages didn't).
+  Fixed `persistSession` in collector-vault + creator-portal to use
+  `SameSite=None; Secure` on HTTPS, plus a `clearSession` helper.
+- **Boot-seed** — `identity-service` now idempotently seeds the demo accounts
+  (henry/raul/eric, role `creator`) on boot, so sign-in works on a fresh deploy or
+  in CI even before the snapshot exists. **Verified end-to-end**: a user registered
+  *before* a restart still logs in *after* it.
+- **Smoke job hardened** — `scripts/ci-smoke.sh` now boots **identity-service**
+  alongside the 11 engines (it backs `/api/register`+`/api/login`, which the `auth`
+  smoke and demo seed need) and sets `CROWNX_PERSIST=off` for deterministic runs.
+  `identity-service` got an env-configurable `PORT`.
+
 ## C16 · Security hardening across all interface layers (DONE)
 
 A platform-wide security + production-hardening pass, with an automated security

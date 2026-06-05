@@ -1,4 +1,4 @@
-import { newId, nowIso } from "@crownx-jewel/shared-kernel";
+import { newId, nowIso, persistSnapshot, mapToEntries, entriesToMap } from "@crownx-jewel/shared-kernel";
 import { anchor, type AnchorReceipt } from "@crownx-jewel/shared-chain";
 import {
   computeShares,
@@ -82,6 +82,13 @@ function seed() {
   }
 }
 seed();
+
+// durable: survive restarts (snapshot loads over the seed if present)
+persistSnapshot({
+  name: "royalty-vault-service",
+  dump: () => ({ configs: mapToEntries(configs), vaults: mapToEntries(vaults), originatorEarned: mapToEntries(originatorEarned) }),
+  load: (d) => { entriesToMap(d.configs, configs); entriesToMap(d.vaults, vaults); entriesToMap(d.originatorEarned, originatorEarned); }
+});
 
 export const royaltyVault = {
   scenarios: () => SCENARIOS,
