@@ -9,6 +9,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "typecheck:ci": "turbo run typecheck --filter=@crownx-jewel/shared-kernel --filter=@crownx-jewel/shared-design --filter=@crownx-jewel/shared-pricing --filter=@crownx-jewel/shared-xp --filter=@crownx-jewel/shared-valuation --filter=@crownx-jewel/shared-chain --filter=@crownx-jewel/shared-authcore --filter=@crownx-jewel/shared-royalty --filter=@crownx-jewel/shared-coa --filter=@crownx-jewel/shared-datadividend --filter=collector-vault --filter=creator-portal --filter=market-web --filter=public-story-web --filter=api-gateway --filter=xp-service --filter=attribution-service --filter=passkey-service --filter=athlete-index-service --filter=pack-n-ship-service --filter=authentication-engine-service --filter=network-feed-service --filter=royalty-vault-service --filter=coa-artifact-service --filter=ai-modeling-service --filter=terms-service",
     "test": "node --test --test-reporter spec \"tests/**/*.test.ts\"",
     "compose:up": "docker compose -f infra/compose/docker-compose.yml up --build",
     "compose:down": "docker compose -f infra/compose/docker-compose.yml down -v",
